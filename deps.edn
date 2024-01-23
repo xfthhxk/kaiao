@@ -40,5 +40,7 @@
    :extra-paths ["test/clj" "test/resources"]
    :extra-deps
    {lambdaisland/kaocha                     {:mvn/version "1.71.1119"}
+    clj-test-containers/clj-test-containers {:mvn/version "0.7.4"}
+    org.testcontainers/postgresql           {:mvn/version "1.19.3"}
     org.clojure/test.check                  {:mvn/version "1.1.1"}
-    com.github.seancorfield/expectations    {:mvn/version "2.0.160"}}}}}
+    com.github.seancorfield/expectations    {:mvn/version "2.1.188"}}}}}

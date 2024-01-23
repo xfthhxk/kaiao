@@ -3,11 +3,25 @@
    [next.jdbc :as jdbc]
    [next.jdbc.sql :as sql]
    [next.jdbc.quoted :as quoted]
+   [next.jdbc.result-set :as rs]
    [kaiao.pg] ; load to register protocol impls
    [kaiao.system :refer [*db*]]
    [clojure.string :as str]
    [camel-snake-kebab.core :as csk]))
 
+(def +rs-opts+
+  {:builder-fn rs/as-unqualified-kebab-maps})
+
+(defn- fnil-created-at
+  [m]
+  (or (:created-at m) (java.time.Instant/now)))
+
+(def ^:private key->extractor-fn
+  {:created-at fnil-created-at})
+
+(defn- row-extractor-fn
+  [columns]
+  (apply juxt (mapv #(key->extractor-fn % %) columns)))
 
 (defn placeholder-list
   [n]
@@ -24,6 +38,12 @@
             (str/join ", "))
        ")"))
 
+;;----------------------------------------------------------------------
+;; Project
+;;----------------------------------------------------------------------
+(defn get-project
+  [id]
+  (sql/get-by-id *db* "project" id :id +rs-opts+))
 
 (defn create-project!
   "Creates a project and returns the id"
@@ -34,9 +54,22 @@
     (sql/insert! *db* :project project)
     (:id project)))
 
-
+;;----------------------------------------------------------------------
+;; User
+;;----------------------------------------------------------------------
 (def +user-columns+
   [:project-id :user-id :email :first-name :last-name :name :org-id :org-name :tags :created-at])
+
+(def user->row-vec (row-extractor-fn +user-columns+))
+
+(defn get-user
+  [project-id user-id]
+  (first (sql/find-by-keys
+          *db*
+          (quoted/postgres "user")
+          {:project_id project-id
+           :user_id user-id}
+          +rs-opts+)))
 
 (defn put-users!
   [users]
@@ -55,13 +88,23 @@
         " , org_name = excluded.org_name "
         " , tags = excluded.tags "
         " , updated_at = current_timestamp")
-   (mapv (apply juxt +user-columns+) users)
+   (mapv user->row-vec users)
    {}))
 
 
+;;----------------------------------------------------------------------
+;; Session
+;;----------------------------------------------------------------------
 (def +session-columns+
   [:id :project-id :user-id :project-version-id :hostname :browser :os :device :screen :language
    :ip-address :country :city :subdivision-1 :subdivision-2 :created-at])
+
+(def session->row-vec (row-extractor-fn +session-columns+))
+
+
+(defn get-session
+  [id]
+  (sql/get-by-id *db* "session" id :id +rs-opts+))
 
 (defn insert-sessions!
   [sessions]
@@ -71,7 +114,7 @@
         (columns-list +session-columns+)
         " values "
         (placeholder-list (count +session-columns+)))
-   (mapv (apply juxt +session-columns+) sessions)
+   (mapv session->row-vec sessions)
    {}))
 
 
@@ -86,8 +129,17 @@
    {}))
 
 
+;;----------------------------------------------------------------------
+;; Event
+;;----------------------------------------------------------------------
 (def +event-columns+
-  [:id :project-id :session-id :name :url-path :url-query :referrer-path :referrer-query :referrer-domain :page-title :screen :created-at])
+  [:id :project-id :session-id :name :url-path :url-query :referrer-path :referrer-query :referrer-domain :page-title :created-at])
+
+(def event->row-vec (row-extractor-fn +event-columns+))
+
+(defn get-event
+  [id]
+  (sql/get-by-id *db* "event" id :id +rs-opts+))
 
 (defn insert-events!
   [events]
@@ -97,12 +149,28 @@
         (columns-list +event-columns+)
         " values "
         (placeholder-list (count +event-columns+)))
-   (mapv (apply juxt +event-columns+) events)
+   (mapv event->row-vec events)
    {}))
 
 
+;;----------------------------------------------------------------------
+;; Event Data
+;;----------------------------------------------------------------------
 (def +event-data-columns+
   [:event-id :key :string-value :int-value :decimal-value :timestamp-value :json-value :created-at])
+
+(def event-data->row-vec (row-extractor-fn +event-data-columns+))
+
+
+(defn get-event-data
+  [event-id key-name]
+  (first (sql/find-by-keys
+          *db*
+          "event_data"
+          {"event_id" event-id
+           "key" key-name}
+          +rs-opts+)))
+
 
 (defn insert-event-datas!
   [event-datas]
@@ -112,12 +180,26 @@
         (columns-list +event-data-columns+)
         " values "
         (placeholder-list (count +event-data-columns+)))
-   (mapv (apply juxt +event-data-columns+) event-datas)
+   (mapv event-data->row-vec event-datas)
    {}))
 
 
+;;----------------------------------------------------------------------
+;; Session Data
+;;----------------------------------------------------------------------
 (def +session-data-columns+
   [:session-id :key :string-value :int-value :decimal-value :timestamp-value :json-value :created-at])
+
+(def session-data->row-vec (row-extractor-fn +session-data-columns+))
+
+(defn get-session-data
+  [session-id key-name]
+  (first (sql/find-by-keys
+          *db*
+          "session_data"
+          {"session_id" session-id
+           "key" key-name}
+          +rs-opts+)))
 
 (defn insert-session-datas!
   [session-datas]
@@ -127,62 +209,5 @@
         (columns-list +session-data-columns+)
         " values "
         (placeholder-list (count +session-data-columns+)))
-   (mapv (apply juxt +session-data-columns+) session-datas)
+   (mapv session-data->row-vec session-datas)
    {}))
-
-
-(comment
-  (create-project! {:id #uuid "b2c33bd3-32f6-4446-8add-3473192e26d4"
-                    :name "kaboom"})
-
-  (put-users! [{:project-id #uuid "b2c33bd3-32f6-4446-8add-3473192e26d4"
-                :user-id "a-user-id"
-                :first-name "User First"
-                :last-name "User Last"
-                :email "user@example.com"
-                :name ""
-                :tags ["hello" "bye"]}])
-
-
-  (insert-sessions!
-   [{:id #uuid "55d26c2c-dac9-43ed-afaa-ed0e4f84d706"
-     :project-id #uuid "b2c33bd3-32f6-4446-8add-3473192e26d4"
-     :user-id "a-user-id"
-     :hostname "my-host"
-     :os "linux"
-     :browser "chrome"}])
-
-
-  (insert-events!
-   [{:id #uuid "3cc7b1a0-fecc-44ed-ad16-59880b02c503"
-     :project-id #uuid "b2c33bd3-32f6-4446-8add-3473192e26d4"
-     :session-id #uuid "55d26c2c-dac9-43ed-afaa-ed0e4f84d706"
-     :name :user/login
-     :page "System Login"
-     :url-path "/login"}])
-
-  (insert-event-datas!
-   [{:event-id #uuid "4ddf4e0a-2f0f-4c1e-903b-4f612282e3e6"
-     :key "boo"
-     :string-value "hoo"
-     :created-at (java.time.Instant/now)}])
-
-  (insert-session-datas!
-   [{:session-id #uuid "55d26c2c-dac9-43ed-afaa-ed0e4f84d706"
-     :key "boo"
-     :numeric-value 83
-     :created-at (java.time.Instant/now)}])
-
-
-
-  (insert-sessions!
-   [{:id #uuid "0dd4a15c-510e-4e43-84aa-37f65a911dd4"
-     :project-id #uuid "b2c33bd3-32f6-4446-8add-3473192e26d4"
-     :hostname "my-host"
-     :os "linux"
-     :browser "chrome"}])
-
-  (identify-session! #uuid "0dd4a15c-510e-4e43-84aa-37f65a911dd4"
-                     "identified-user-id")
-
-  )

@@ -1,13 +1,3 @@
--- see https://support.google.com/analytics/answer/9234069
--- api kaiao.init({:kaiao/project-id "jdkdj" :kaiao/endpoint "https://example.com/analytics/kaiao/ingest"})
---     kaiao.identify(user-id) sets the user id on the session
---     kaiao.track(event-data) event/id session/id project/id
---     kaiao.reset() generate a new session id in local storage
---     queing, batching, exponential backoff retry in client
---     limit 2000 events per request
---     use pg copy to load data in batches
-
-
 create table "project" (
    "id" uuid not null
  , "name" varchar(100) not null
@@ -65,7 +55,6 @@ create table "event" (
  , "referrer_query" varchar(500)
  , "referrer_domain" varchar(500)
  , "page_title" varchar(500)
- , "screen" varchar(11)
  , "created_at" timestamptz(6) default current_timestamp
  , constraint "event_pk" primary key ("id")
 );
