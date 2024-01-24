@@ -12,3 +12,18 @@
           (Manifest.)
           (.getMainAttributes)
           (.getValue "git-sha")))
+
+(defn now
+  []
+  (java.time.Instant/now))
+
+
+(defn remove-nils
+  [m]
+  (loop [ans (transient {})
+         [[k v :as kv] & more] m]
+    (if-not kv
+      (persistent! ans)
+      (recur (cond-> ans
+               (some? v) (assoc! k v))
+             more))))

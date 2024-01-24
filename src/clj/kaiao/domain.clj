@@ -1,6 +1,15 @@
 (ns kaiao.domain
   (:require [clojure.spec.alpha :as s]))
 
+(defn allowed-keys
+  "returns a set of allowed keys for the given map spec"
+  [spec-kw]
+  (->> (s/describe spec-kw)
+       (filter vector?)
+       (sequence cat)
+       (map name)
+       (map keyword)
+       (into (sorted-set))))
 
 (defn instant?
   [x]
@@ -55,6 +64,7 @@
                    :kaiao/created-at
                    :kaiao/updated-at]))
 
+
 (s/def :kaiao/user
   (s/keys :req-un [:kaiao/project-id
                    :kaiao/user-id]
@@ -86,6 +96,7 @@
                    :kaiao/subdivision-2
                    :kaiao/created-at
                    :kaiao/updated-at]))
+
 
 (s/def :kaiao/event
   (s/keys :req-un [:kaiao/id
@@ -119,3 +130,18 @@
                    :kaiao/timestamp-value
                    :kaiao/json-value
                    :kaiao/created-at]))
+
+(def +allowed-user-keys+
+  (allowed-keys :kaiao/user))
+
+(def +allowed-session-keys+
+  (allowed-keys :kaiao/session))
+
+(def +allowed-event-keys+
+  (allowed-keys :kaiao/event))
+
+(def +allowed-event-data-keys+
+  (allowed-keys :kaiao/event-data))
+
+(def +allowed-session-data-keys+
+  (allowed-keys :kaiao/session-data))

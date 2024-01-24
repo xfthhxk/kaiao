@@ -1,11 +1,11 @@
 (ns kaiao.test
   (:require
    [kaiao.test-db :as test-db]
-   [kaiao.system :refer [*db*]]))
+   [kaiao.system :as system]))
 
 
 ;; only for repl based debugging
-(defonce ^:dynamic *test-db* nil)
+(defonce ^:dynamic *db* nil)
 
 
 (defn ensure-system!
@@ -20,19 +20,20 @@
 
 (defn teardown []
   (test-db/halt!)
+  (alter-var-root #'*db* (constantly nil))
   (println "test db halted"))
 
 
 (defn kaocha-pre-hook!
   [config]
-  (println "Koacha pre hook")
+  (println "Kaocha pre hook")
   (setup)
   config)
 
 
 (defn kaocha-post-hook!
   [result]
-  (println "Koacha post hook")
+  (println "Kaocha post hook")
   (teardown)
   result)
 
@@ -40,6 +41,6 @@
 (defn with-system
   [f]
   (ensure-system!)
-  (binding [*db* (test-db/new-db!)]
-    (alter-var-root #'*test-db* (constantly *db*))
+  (binding [system/*db* (test-db/new-db!)]
+    (alter-var-root #'*db* (constantly system/*db*))
     (f)))

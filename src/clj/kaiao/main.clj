@@ -111,9 +111,3 @@
   (stop-services!)
 
   )
-
-
-;; routes
-
-;; create db cn pool
-;; start server

@@ -4,10 +4,15 @@
             [next.jdbc.quoted :as quoted]
             [kaiao.main :as main]
             [kaiao.flyway :as flyway]
+            [kaiao.routes :as routes]
             [kaiao.system :refer [*db*]]))
 
 
 (def +jdbc-url+ "jdbc:postgresql://localhost:5400/kaiao-db?user=foo&password=bar")
+
+(defn enable-dev-hacks!
+  []
+  (alter-var-root #'routes/https? (constantly true)))
 
 (defn start!
   []

@@ -91,23 +91,23 @@
     (expect inst? (-> id db/get-event :created-at))))
 
 
-(deftest insert-event-datas!-test
+(deftest insert-event-data!-test
   (let [id #uuid "3cc7b1a0-fecc-44ed-ad16-59880b02c503"
         e {:event-id id
            :key "boo"
            :string-value "hoo"}]
-    (db/insert-event-datas! [e])
+    (db/insert-event-data! [e])
     (expect e (-> (db/get-event-data id "boo")
                   (select-keys (keys e))))
     (expect inst? (:created-at (db/get-event-data id "boo")))))
 
 
-(deftest insert-session-datas!-test
+(deftest insert-session-data!-test
   (let [id #uuid "3cc7b1a0-fecc-44ed-ad16-59880b02c503"
         e {:session-id id
            :key "boo"
            :string-value "hoo"}]
-    (db/insert-session-datas! [e])
+    (db/insert-session-data! [e])
     (expect e (-> (db/get-session-data id "boo")
                   (select-keys (keys e))))
     (expect inst? (:created-at (db/get-session-data id "boo")))))

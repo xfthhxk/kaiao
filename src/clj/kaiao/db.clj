@@ -4,8 +4,10 @@
    [next.jdbc.sql :as sql]
    [next.jdbc.quoted :as quoted]
    [next.jdbc.result-set :as rs]
+   [kaiao.domain :as domain]
    [kaiao.pg] ; load to register protocol impls
    [kaiao.system :refer [*db*]]
+   [kaiao.util :as util]
    [clojure.string :as str]
    [camel-snake-kebab.core :as csk]))
 
@@ -16,20 +18,33 @@
   [m]
   (or (:created-at m) (java.time.Instant/now)))
 
+(defn- ensure-uuid-fn
+  [k]
+  (fn [m]
+    (when-let [v (get m k)]
+      (cond
+        (uuid? v) v
+        (string? v) (java.util.UUID/fromString v)
+        :else (throw (ex-info "Invalid uuid" {:v v}))))))
+
 (def ^:private key->extractor-fn
-  {:created-at fnil-created-at})
+  {:created-at fnil-created-at
+   :project-id (ensure-uuid-fn :project-id)
+   :session-id (ensure-uuid-fn :session-id)
+   :event-id (ensure-uuid-fn :event-id)
+   :id (ensure-uuid-fn :id)})
 
 (defn- row-extractor-fn
   [columns]
   (apply juxt (mapv #(key->extractor-fn % %) columns)))
 
-(defn placeholder-list
+(defn- placeholder-list
   [n]
   (str "(" (str/join ", " (repeat n "?")) ")"))
 
 
 
-(defn columns-list
+(defn- columns-list
   [columns]
   (str "("
        (->> columns
@@ -49,7 +64,7 @@
   "Creates a project and returns the id"
   [project]
   (when (str/blank? (:name project))
-    (throw (ex-info ":name is required" project)))
+    (throw (ex-info "project name is required" project)))
   (let [project (merge {:id (random-uuid)} project)]
     (sql/insert! *db* :project project)
     (:id project)))
@@ -57,10 +72,7 @@
 ;;----------------------------------------------------------------------
 ;; User
 ;;----------------------------------------------------------------------
-(def +user-columns+
-  [:project-id :user-id :email :first-name :last-name :name :org-id :org-name :tags :created-at])
-
-(def user->row-vec (row-extractor-fn +user-columns+))
+(def ^:private user-values (row-extractor-fn domain/+allowed-user-keys+))
 
 (defn get-user
   [project-id user-id]
@@ -72,13 +84,13 @@
           +rs-opts+)))
 
 (defn put-users!
-  [users]
+  [xs]
   (jdbc/execute-batch!
    *db*
    (str "insert into " (quoted/postgres "user")
-        (columns-list +user-columns+)
+        (columns-list domain/+allowed-user-keys+)
         " values "
-        (placeholder-list (count +user-columns+))
+        (placeholder-list (count domain/+allowed-user-keys+))
         " on conflict (project_id, user_id) "
         " do update set email = excluded.email "
         " , first_name = excluded.first_name "
@@ -88,34 +100,30 @@
         " , org_name = excluded.org_name "
         " , tags = excluded.tags "
         " , updated_at = current_timestamp")
-   (mapv user->row-vec users)
+   (mapv user-values xs)
    {}))
 
 
 ;;----------------------------------------------------------------------
 ;; Session
 ;;----------------------------------------------------------------------
-(def +session-columns+
-  [:id :project-id :user-id :project-version-id :hostname :browser :os :device :screen :language
-   :ip-address :country :city :subdivision-1 :subdivision-2 :created-at])
-
-(def session->row-vec (row-extractor-fn +session-columns+))
-
+(def ^:private session-values (row-extractor-fn domain/+allowed-session-keys+))
 
 (defn get-session
   [id]
-  (sql/get-by-id *db* "session" id :id +rs-opts+))
+  (util/remove-nils (sql/get-by-id *db* "session" id :id +rs-opts+)))
 
 (defn insert-sessions!
-  [sessions]
-  (jdbc/execute-batch!
-   *db*
-   (str "insert into " (quoted/postgres "session")
-        (columns-list +session-columns+)
-        " values "
-        (placeholder-list (count +session-columns+)))
-   (mapv session->row-vec sessions)
-   {}))
+  ([xs] (insert-sessions! *db* xs))
+  ([db xs]
+   (jdbc/execute-batch!
+    db
+    (str "insert into " (quoted/postgres "session")
+         (columns-list domain/+allowed-session-keys+)
+         " values "
+         (placeholder-list (count domain/+allowed-session-keys+)))
+    (mapv session-values xs)
+    {})))
 
 
 (defn identify-session!
@@ -132,82 +140,95 @@
 ;;----------------------------------------------------------------------
 ;; Event
 ;;----------------------------------------------------------------------
-(def +event-columns+
-  [:id :project-id :session-id :name :url-path :url-query :referrer-path :referrer-query :referrer-domain :page-title :created-at])
-
-(def event->row-vec (row-extractor-fn +event-columns+))
+(def ^:private event-values (row-extractor-fn domain/+allowed-event-keys+))
 
 (defn get-event
   [id]
-  (sql/get-by-id *db* "event" id :id +rs-opts+))
+  (util/remove-nils (sql/get-by-id *db* "event" id :id +rs-opts+)))
 
 (defn insert-events!
-  [events]
-  (jdbc/execute-batch!
-   *db*
-   (str "insert into " (quoted/postgres "event")
-        (columns-list +event-columns+)
-        " values "
-        (placeholder-list (count +event-columns+)))
-   (mapv event->row-vec events)
-   {}))
+  ([xs] (insert-events! *db* xs))
+  ([db xs]
+   (jdbc/execute-batch!
+    db
+    (str "insert into " (quoted/postgres "event")
+         (columns-list domain/+allowed-event-keys+)
+         " values "
+         (placeholder-list (count domain/+allowed-event-keys+)))
+    (mapv event-values xs)
+    {})))
 
 
 ;;----------------------------------------------------------------------
 ;; Event Data
 ;;----------------------------------------------------------------------
-(def +event-data-columns+
-  [:event-id :key :string-value :int-value :decimal-value :timestamp-value :json-value :created-at])
-
-(def event-data->row-vec (row-extractor-fn +event-data-columns+))
-
+(def ^:private event-data-values (row-extractor-fn domain/+allowed-event-data-keys+))
 
 (defn get-event-data
-  [event-id key-name]
-  (first (sql/find-by-keys
-          *db*
-          "event_data"
-          {"event_id" event-id
-           "key" key-name}
-          +rs-opts+)))
+  ([event-id]
+   (->> (sql/find-by-keys
+         *db*
+         "event_data"
+         {"event_id" event-id}
+         +rs-opts+)
+        (map util/remove-nils)))
+  ([event-id key-name]
+   (some-> (sql/find-by-keys
+            *db*
+            "event_data"
+            {"event_id" event-id
+             "key" key-name}
+            +rs-opts+)
+           first
+           util/remove-nils)))
 
 
-(defn insert-event-datas!
-  [event-datas]
-  (jdbc/execute-batch!
-   *db*
-   (str "insert into " (quoted/postgres "event_data")
-        (columns-list +event-data-columns+)
-        " values "
-        (placeholder-list (count +event-data-columns+)))
-   (mapv event-data->row-vec event-datas)
-   {}))
+(defn insert-event-data!
+  ([xs] (insert-event-data! *db* xs))
+  ([db xs]
+   (when (seq xs)
+     (jdbc/execute-batch!
+      db
+      (str "insert into " (quoted/postgres "event_data")
+           (columns-list domain/+allowed-event-data-keys+)
+           " values "
+           (placeholder-list (count domain/+allowed-event-data-keys+)))
+      (mapv event-data-values xs)
+      {}))))
 
 
 ;;----------------------------------------------------------------------
 ;; Session Data
 ;;----------------------------------------------------------------------
-(def +session-data-columns+
-  [:session-id :key :string-value :int-value :decimal-value :timestamp-value :json-value :created-at])
-
-(def session-data->row-vec (row-extractor-fn +session-data-columns+))
+(def ^:private session-data-values (row-extractor-fn domain/+allowed-session-data-keys+))
 
 (defn get-session-data
-  [session-id key-name]
-  (first (sql/find-by-keys
-          *db*
-          "session_data"
-          {"session_id" session-id
-           "key" key-name}
-          +rs-opts+)))
+  ([session-id]
+   (->> (sql/find-by-keys
+         *db*
+         "session_data"
+         {"session_id" session-id}
+         +rs-opts+)
+        (map util/remove-nils)))
+  ([session-id key-name]
+   (some-> (sql/find-by-keys
+            *db*
+            "session_data"
+            {"session_id" session-id
+             "key" key-name}
+            +rs-opts+)
+           first
+           util/remove-nils)))
 
-(defn insert-session-datas!
-  [session-datas]
-  (jdbc/execute-batch!
-   *db*
-   (str "insert into " (quoted/postgres "session_data")
-        (columns-list +session-data-columns+)
-        " values "
-        (placeholder-list (count +session-data-columns+)))
-   (mapv session-data->row-vec session-datas)
-   {}))
+(defn insert-session-data!
+  ([xs] (insert-session-data! *db* xs))
+  ([db xs]
+   (when (seq xs)
+     (jdbc/execute-batch!
+      db
+      (str "insert into " (quoted/postgres "session_data")
+           (columns-list domain/+allowed-session-data-keys+)
+           " values "
+           (placeholder-list (count domain/+allowed-session-data-keys+)))
+      (mapv session-data-values xs)
+      {}))))

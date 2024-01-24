@@ -9,6 +9,7 @@
    [s-exp.hirundo.http.routing]
    [charred.api :as charred]
    [clojure.edn :as edn]
+   [clojure.string :as str]
    [kaiao.ingest]
    [cognitect.transit :as transit]))
 
@@ -110,6 +111,42 @@
         resp))))
 
 
+(defn- https?
+  [req]
+  (= "https" (or (get-in req [:headers "x-forwarded-proto"])
+                 (name (:scheme req)))))
+
+(defn- remote-ip
+  [req]
+  ;; each load balancer can add its ip to the end of x-forwarded-for
+  ;; the first ip is the actual remote ip
+  (when-let [s (or (some-> (get-in req [:headers "x-forwarded-for"])
+                           (str/split #",")
+                           first
+                           str/trim)
+                   (:remote-addr req))]
+    ;; ip6 remote-addrs can look like "[:::0]" this unwraps the []
+    (if (= \[ (.charAt s 0))
+      (subs s 1 (dec (count s)))
+      s)))
+
+(defn wrap-remote-ip
+  [handler]
+  (fn [req]
+    (handler (assoc req :kaiao/remote-ip (remote-ip req)))))
+
+
+(defn wrap-require-https
+  "Require https otherwise returned fn returns nil which triggers
+  `:not-acceptable` http status 406"
+  [handler]
+  (fn [req]
+    (if (https? req)
+      (handler req)
+      {:status 406
+       :headers {}
+       :body {:error "https required"}})))
+
 (defn wrap-exception-handler
   [handler]
   (fn [req]
@@ -131,9 +168,7 @@
 
 (def routes
   {"GET /ping" pong
-   "POST /sessions" #'kaiao.ingest/create-session!
-   "PUT /sessions/*" #'kaiao.ingest/identify-session!
-   "POST /events:batch-create" #'kaiao.ingest/track!
+   "POST /track" #'kaiao.ingest/track!
    "* /**" not-found})
 
 
@@ -144,5 +179,7 @@
       wrap-decode-request
       wrap-content-negotiation
       wrap-response
+      wrap-remote-ip
+      wrap-require-https
       wrap-exception-handler
       wrap-encode-response))
