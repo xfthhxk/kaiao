@@ -121,7 +121,7 @@
                              :kaiao/remote-ip "127.0.0.1"})
     (expect nil (:user-id (db/get-session session-id)))
     (ingest/identify-session! {:body-params {:session-id session-id
-                                             :user {:user-id "LD"
+                                             :user {:id "LD"
                                                     :project-id project-id
                                                     :first-name "larry"
                                                     :last-name "david"

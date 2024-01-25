@@ -33,7 +33,8 @@
 (s/def :kaiao/browser string?)
 (s/def :kaiao/os string?)
 (s/def :kaiao/device string?)
-(s/def :kaiao/screen string?)
+(s/def :kaiao/screen-height pos-int?)
+(s/def :kaiao/screen-width pos-int?)
 (s/def :kaiao/language string?)
 (s/def :kaiao/ip-address string?)
 (s/def :kaiao/country string?)
@@ -56,6 +57,8 @@
 (s/def :kaiao/timestamp-value instant?)
 (s/def :kaiao/json-value coll?)
 
+(s/def :external/id string?)
+
 
 (s/def :kaiao/project
   (s/keys :req-un [:kaiao/id
@@ -66,8 +69,8 @@
 
 
 (s/def :kaiao/user
-  (s/keys :req-un [:kaiao/project-id
-                   :kaiao/user-id]
+  (s/keys :req-un [:external/id
+                   :kaiao/project-id]
           :opt-un [:kaiao/email
                    :kaiao/first-name
                    :kaiao/last-name
@@ -87,7 +90,8 @@
                    :kaiao/browser
                    :kaiao/os
                    :kaiao/device
-                   :kaiao/screen
+                   :kaiao/screen-height
+                   :kaiao/screen-width
                    :kaiao/language
                    :kaiao/ip-address
                    :kaiao/country

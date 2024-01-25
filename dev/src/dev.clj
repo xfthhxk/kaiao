@@ -4,8 +4,7 @@
             [next.jdbc.quoted :as quoted]
             [kaiao.main :as main]
             [kaiao.flyway :as flyway]
-            [kaiao.routes :as routes]
-            [kaiao.system :refer [*db*]]))
+            [kaiao.routes :as routes]))
 
 
 (def +jdbc-url+ "jdbc:postgresql://localhost:5400/kaiao-db?user=foo&password=bar")
@@ -26,11 +25,15 @@
 
 (defn re-init-db!
   []
-  (doseq [tbl ["event" "event_data" "project" "session" "session_data" "user" "flyway_schema_history"]]
-    (jdbc/execute-one! *db* [ (str "drop table " (quoted/postgres tbl))]))
-  (flyway/migrate!))
+  (with-open [db (main/create-datasource {:kaiao/jdbc-url +jdbc-url+})]
+    (doseq [tbl ["event" "event_data" "project" "session" "session_data" "user" "flyway_schema_history"]]
+      (try
+        (jdbc/execute-one! db [(str "drop table " (quoted/postgres tbl))])
+        (catch java.sql.SQLException ex
+          (println (ex-message ex)))))
+    (flyway/migrate! db)))
 
 (comment
   (restart!)
-
-  (re-init-db!))
+  (re-init-db!)
+  )

@@ -1,18 +1,57 @@
 (ns kaiao.db
   (:require
    [next.jdbc :as jdbc]
+   [next.jdbc.date-time :as date-time]
    [next.jdbc.sql :as sql]
    [next.jdbc.quoted :as quoted]
    [next.jdbc.result-set :as rs]
+   [next.jdbc.default-options]
    [kaiao.domain :as domain]
    [kaiao.pg] ; load to register protocol impls
    [kaiao.system :refer [*db*]]
-   [kaiao.util :as util]
    [clojure.string :as str]
-   [camel-snake-kebab.core :as csk]))
+   [camel-snake-kebab.core :as csk])
+  (:import [java.sql ResultSet]))
+
+(set! *warn-on-reflection* true)
+
+(date-time/read-as-instant) ;; reads sql date and timestamp as instants
+
+;; does not include keys where the value is nil
+(defrecord MapResultSetBuilder [^ResultSet rs rsmeta cols]
+  rs/RowBuilder
+  (->row [_this] (transient {}))
+  (column-count [_this] (count cols))
+  (with-column [this row i]
+    (rs/with-column-value this row (nth cols (dec i))
+      (rs/read-column-by-index (.getObject rs ^Integer i) rsmeta i)))
+  (with-column-value [_this row col v]
+    (cond-> row
+      (some? v) (assoc! col v)))
+  (row! [_this row]
+    (persistent! row))
+  rs/ResultSetBuilder
+  (->rs [_this] (transient []))
+  (with-row [_this mrs row]
+    (conj! mrs row))
+  (rs! [_this mrs]
+    (persistent! mrs)))
+
+
+(defn- as-maps
+  "Given a `ResultSet` and options, return a `RowBuilder` / `ResultSetBuilder`
+  that produces bare vectors of hash map rows, with simple, modified keys. "
+  [^ResultSet rs opts]
+  (let [rsmeta (.getMetaData rs)
+        cols   (rs/get-unqualified-modified-column-names
+                rsmeta
+                (assoc opts :label-fn csk/->kebab-case))]
+    (->MapResultSetBuilder rs rsmeta cols)))
+
 
 (def +rs-opts+
-  {:builder-fn rs/as-unqualified-kebab-maps})
+  {:builder-fn as-maps})
+
 
 (defn- fnil-created-at
   [m]
@@ -35,8 +74,9 @@
    :id (ensure-uuid-fn :id)})
 
 (defn- row-extractor-fn
-  [columns]
-  (apply juxt (mapv #(key->extractor-fn % %) columns)))
+  ([columns] (row-extractor-fn key->extractor-fn columns))
+  ([key->fn columns]
+   (apply juxt (mapv #(key->fn % %) columns))))
 
 (defn- placeholder-list
   [n]
@@ -72,7 +112,9 @@
 ;;----------------------------------------------------------------------
 ;; User
 ;;----------------------------------------------------------------------
-(def ^:private user-values (row-extractor-fn domain/+allowed-user-keys+))
+(def ^:private user-values
+  ;; a User's :id field is a string so have it be the key
+  (row-extractor-fn (dissoc key->extractor-fn :id) domain/+allowed-user-keys+))
 
 (defn get-user
   [project-id user-id]
@@ -80,7 +122,7 @@
           *db*
           (quoted/postgres "user")
           {:project_id project-id
-           :user_id user-id}
+           :id user-id}
           +rs-opts+)))
 
 (defn put-users!
@@ -91,7 +133,7 @@
         (columns-list domain/+allowed-user-keys+)
         " values "
         (placeholder-list (count domain/+allowed-user-keys+))
-        " on conflict (project_id, user_id) "
+        " on conflict (id, project_id) "
         " do update set email = excluded.email "
         " , first_name = excluded.first_name "
         " , last_name = excluded.last_name "
@@ -111,7 +153,7 @@
 
 (defn get-session
   [id]
-  (util/remove-nils (sql/get-by-id *db* "session" id :id +rs-opts+)))
+  (sql/get-by-id *db* "session" id :id +rs-opts+))
 
 (defn insert-sessions!
   ([xs] (insert-sessions! *db* xs))
@@ -121,7 +163,8 @@
     (str "insert into " (quoted/postgres "session")
          (columns-list domain/+allowed-session-keys+)
          " values "
-         (placeholder-list (count domain/+allowed-session-keys+)))
+         (placeholder-list (count domain/+allowed-session-keys+))
+         " on conflict (id) do nothing ")
     (mapv session-values xs)
     {})))
 
@@ -144,7 +187,7 @@
 
 (defn get-event
   [id]
-  (util/remove-nils (sql/get-by-id *db* "event" id :id +rs-opts+)))
+  (sql/get-by-id *db* "event" id :id +rs-opts+))
 
 (defn insert-events!
   ([xs] (insert-events! *db* xs))
@@ -154,7 +197,8 @@
     (str "insert into " (quoted/postgres "event")
          (columns-list domain/+allowed-event-keys+)
          " values "
-         (placeholder-list (count domain/+allowed-event-keys+)))
+         (placeholder-list (count domain/+allowed-event-keys+))
+         " on conflict (id) do nothing ")
     (mapv event-values xs)
     {})))
 
@@ -166,12 +210,11 @@
 
 (defn get-event-data
   ([event-id]
-   (->> (sql/find-by-keys
-         *db*
-         "event_data"
-         {"event_id" event-id}
-         +rs-opts+)
-        (map util/remove-nils)))
+   (sql/find-by-keys
+    *db*
+    "event_data"
+    {"event_id" event-id}
+    +rs-opts+))
   ([event-id key-name]
    (some-> (sql/find-by-keys
             *db*
@@ -179,8 +222,7 @@
             {"event_id" event-id
              "key" key-name}
             +rs-opts+)
-           first
-           util/remove-nils)))
+           first)))
 
 
 (defn insert-event-data!
@@ -192,7 +234,8 @@
       (str "insert into " (quoted/postgres "event_data")
            (columns-list domain/+allowed-event-data-keys+)
            " values "
-           (placeholder-list (count domain/+allowed-event-data-keys+)))
+           (placeholder-list (count domain/+allowed-event-data-keys+))
+           " on conflict (event_id, key) do nothing ")
       (mapv event-data-values xs)
       {}))))
 
@@ -204,12 +247,11 @@
 
 (defn get-session-data
   ([session-id]
-   (->> (sql/find-by-keys
-         *db*
-         "session_data"
-         {"session_id" session-id}
-         +rs-opts+)
-        (map util/remove-nils)))
+   (sql/find-by-keys
+    *db*
+    "session_data"
+    {"session_id" session-id}
+    +rs-opts+))
   ([session-id key-name]
    (some-> (sql/find-by-keys
             *db*
@@ -217,8 +259,7 @@
             {"session_id" session-id
              "key" key-name}
             +rs-opts+)
-           first
-           util/remove-nils)))
+           first)))
 
 (defn insert-session-data!
   ([xs] (insert-session-data! *db* xs))
@@ -229,6 +270,7 @@
       (str "insert into " (quoted/postgres "session_data")
            (columns-list domain/+allowed-session-data-keys+)
            " values "
-           (placeholder-list (count domain/+allowed-session-data-keys+)))
+           (placeholder-list (count domain/+allowed-session-data-keys+))
+           " on conflict (session_id, key) do nothing ")
       (mapv session-data-values xs)
       {}))))

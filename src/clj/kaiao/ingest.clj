@@ -2,8 +2,9 @@
   (:require
    [kaiao.db :as db]
    [next.jdbc :as jdbc]
-   [kaiao.system :refer [*db*]]
-   [kaiao.util :as util]))
+   [kaiao.system :refer [*db*]]))
+
+(defn now [] (java.time.Instant/now))
 
 (defn- ->data-key
   [x]
@@ -33,7 +34,7 @@
 (defn create-session!
   [{:keys [kaiao/remote-ip] :as req}]
   (let [session (:body-params req)
-        created-at (or (:created-at session) (util/now))
+        created-at (or (:created-at session) (now))
         session-data (data-rows :session-id (:id session) created-at (:data session))]
     (jdbc/with-transaction [txn *db*]
       (db/insert-sessions! txn [(assoc session :ip-address remote-ip)])
@@ -42,7 +43,7 @@
 (defn create-event!
   [req]
   (let [event (:body-params req)
-        created-at (or (:created-at event) (util/now))
+        created-at (or (:created-at event) (now))
         event-data (data-rows :event-id (:id event) created-at (:data event))]
     (jdbc/with-transaction [txn *db*]
       (db/insert-events! txn [event])
@@ -52,15 +53,22 @@
   [req]
   (let [{:keys [session-id user]} (:body-params req)]
     (db/put-users! [user])
-    (db/identify-session! session-id (:user-id user))))
+    (db/identify-session! session-id (:id user))))
 
 
 (defn track!
   [req]
-  (let [track (get-in req [:body-params :kaiao/track])
-        f (case track
-            :kaiao.track/session create-session!
-            :kaiao.track/event create-event!
-            :kaiao.track/identify identify-session!
-            (constantly :kaiao/invalid-request))]
-    (f req)))
+  (let [{:keys [data metadata]} (:body-params req)
+        f (case (-> metadata :op keyword)
+            :kaiao.op/session create-session!
+            :kaiao.op/event create-event!
+            :kaiao.op/identify identify-session!
+            (constantly :kaiao/invalid-request))
+        res (f data)]
+    (when (= :kaiao/invalid-request res)
+      {:status 400
+       :headers {}
+       :body {:error "invalid request op"}})))
+
+
+;; referrer-host instead of referrer-domain

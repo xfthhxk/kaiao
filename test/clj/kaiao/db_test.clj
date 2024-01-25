@@ -19,8 +19,8 @@
 (deftest put-users!-test
   (let [project-id #uuid "b2c33bd3-32f6-4446-8add-3473192e26d4"
         user-id "user-id-1"
-        u {:project-id project-id
-           :user-id  user-id
+        u {:id  user-id
+           :project-id project-id
            :email "user@example.com"
            :first-name "User First"
            :last-name "User Last"
@@ -42,7 +42,8 @@
            :browser "chrome"
            :os "linux"
            :device "Mac"
-           :screen "1200x1800"
+           :screen-height 1200
+           :screen-width 1800
            :language "en"
            :ip-address "127.0.0.1"
            :country "us"
@@ -60,7 +61,8 @@
            :browser "chrome"
            :os "linux"
            :device "Mac"
-           :screen "1200x1800"
+           :screen-height 1200
+           :screen-width 1800
            :language "en"
            :ip-address "127.0.0.1"
            :country "us"

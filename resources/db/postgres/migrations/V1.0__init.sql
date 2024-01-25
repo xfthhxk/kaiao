@@ -8,8 +8,8 @@ create table "project" (
 );
 
 create table "user" (
-    "project_id" uuid not null
-  , "user_id" varchar(100) not null
+    "id" varchar(100) not null
+  , "project_id" uuid not null
   , "email" varchar(100)
   , "first_name" varchar(100)
   , "last_name" varchar(100)
@@ -19,7 +19,7 @@ create table "user" (
   , "tags" jsonb
   , "created_at" timestamptz(6) default current_timestamp
   , "updated_at" timestamptz(6)
-  , constraint "user_pk" primary key ("project_id", "user_id")
+  , constraint "user_pk" primary key ("id", "project_id")
 );
 
 create table "session" (
@@ -31,7 +31,8 @@ create table "session" (
  , "browser" varchar(20)
  , "os" varchar(20)
  , "device" varchar(20)
- , "screen" varchar(11)
+ , "screen_width" int
+ , "screen_height" int
  , "language" varchar(35)
  , "ip_address" varchar(50)
  , "country" char(2)
@@ -86,7 +87,6 @@ create table "session_data" (
 );
 
 
-create unique index "user__project_user_ak" on "user"("project_id", "user_id");
 create unique index "user__project_email_ak" on "user"("project_id", "email");
 create index "session__project_user_ix" on "session"("project_id", "user_id");
 create index "session__created_ix" on "session"("created_at");

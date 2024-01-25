@@ -1,6 +1,7 @@
 (ns kaiao.main
   (:gen-class)
   (:require
+   [clojure.java.io :as io]
    [com.brunobonacci.mulog :as mu]
    [s-exp.hirundo :as hirundo]
    [s-exp.hirundo.options :as options]
@@ -9,16 +10,26 @@
    [next.jdbc.connection :as jdbc.connection]
    [kaiao.system :refer [*server* *db*]]
    [kaiao.flyway :as flyway]
-   [kaiao.routes :as routes]
-   [kaiao.util :as util])
+   [kaiao.routes :as routes])
   (:import
    (com.zaxxer.hikari HikariDataSource)
+   (java.util.jar Manifest)
    (io.helidon.webserver WebServerConfig$Builder)
    (io.helidon.webserver.http ErrorHandler Handler HttpRouting ServerResponse)))
 
 (set! *warn-on-reflection* true)
 
 (defonce stop-publisher-fn nil)
+
+
+(defn- git-sha
+  "Returns the git-sha from the jar's MANIFEST.MF file if one exists else nil"
+  []
+  (some-> (io/resource "META-INF/MANIFEST.MF")
+          io/input-stream
+          (Manifest.)
+          (.getMainAttributes)
+          (.getValue "git-sha")))
 
 (defn final-error-handler
   [_req ^ServerResponse resp ^Throwable t]
@@ -66,13 +77,18 @@
   (alter-var-root #'*server* (constantly nil)))
 
 
+
+(defn create-datasource
+  [{:keys [kaiao/jdbc-url]}]
+  (jdbc.connection/->pool
+   HikariDataSource {:jdbcUrl jdbc-url
+                     :reWriteBatchedInserts true}))
+
 (defn create-datasource!
   ([]
    (create-datasource! {:kaiao/jdbc-url (System/getenv "KAIAO_DB_URL")}))
-  ([{:keys [kaiao/jdbc-url]}]
-   (let [ds (jdbc.connection/->pool
-             HikariDataSource {:jdbcUrl jdbc-url
-                               :reWriteBatchedInserts true})]
+  ([opts]
+   (let [ds (create-datasource opts)]
      (alter-var-root #'*db* (constantly ds)))))
 
 
@@ -102,7 +118,7 @@
   [& _args]
   (-> (Runtime/getRuntime)
       (.addShutdownHook (Thread. ^Runnable stop-services!)))
-  (mu/log :kaiao/main :git/sha (util/git-sha))
+  (mu/log :kaiao/main :git/sha (git-sha))
   (start-services!))
 
 
