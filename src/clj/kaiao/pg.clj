@@ -49,7 +49,11 @@
 
   clojure.lang.Keyword
   (set-parameter [^clojure.lang.Keyword v ^PreparedStatement ps ^long i]
-    (.setString ps i (str (.-sym v)))))
+    (.setString ps i (str (.-sym v))))
+
+  java.time.Instant
+  (set-parameter [^java.time.Instant v ^PreparedStatement ps ^long i]
+    (.setTimestamp ps i (Timestamp/from v))))
 
 
 (extend-protocol result-set/ReadableColumn

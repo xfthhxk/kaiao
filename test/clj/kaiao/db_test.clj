@@ -85,7 +85,7 @@
            :url-query "?a=1"
            :referrer-path "/ref/path"
            :referrer-query "?b=2"
-           :referrer-domain "example.com"
+           :referrer-host "example.com"
            :page-title "System Login"}]
     (db/insert-events! [e])
     (expect e (-> (db/get-event id)

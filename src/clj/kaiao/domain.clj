@@ -46,7 +46,7 @@
 (s/def :kaiao/url-query string?)
 (s/def :kaiao/referrer-path string?)
 (s/def :kaiao/referrer-query string?)
-(s/def :kaiao/referrer-domain string?)
+(s/def :kaiao/referrer-host string?)
 (s/def :kaiao/page-title string?)
 (s/def :kaiao/page-title string?)
 (s/def :kaiao/event-id uuid?)
@@ -111,7 +111,7 @@
                    :kaiao/url-query
                    :kaiao/referrer-path
                    :kaiao/referrer-query
-                   :kaiao/referrer-domain
+                   :kaiao/referrer-host
                    :kaiao/page-title
                    :kaiao/created-at]))
 

@@ -47,7 +47,10 @@
              (lib/sys-exit 1 "no namespace or fully qualified var specified"))
            (shell (str "clojure -M:dev:test --focus " named-test)))}
 
+  db:migrate!
+  {:doc "Migrates the database using the KAIAO_DB_URL, KAIAO_DB_USER and KAIAO_DB_PASSWORD env params"
+   :task (shell "clojure -X:flyway flyway/migrate!")}
 
-
-
-  }}
+  db:clean!
+  {:doc "Migrates the database using the KAIAO_DB_URL, KAIAO_DB_USER and KAIAO_DB_PASSWORD env params"
+   :task (shell "clojure -X:flyway flyway/clean!")}}}

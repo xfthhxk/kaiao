@@ -13,6 +13,7 @@
    [kaiao.ingest]
    [cognitect.transit :as transit]))
 
+(defonce ^:dynamic *https-required* true)
 
 (defn <-transit
   [in]
@@ -105,6 +106,7 @@
                            (+encodings+ (get-in req [:headers "accept"]))
                            "application/json")
               encoder (encoding->encoder encoding)]
+          (assert encoder)
           (-> resp
               (assoc-in [:headers "content-type"] encoding)
               (update :body encoder)))
@@ -113,8 +115,10 @@
 
 (defn- https?
   [req]
-  (= "https" (or (get-in req [:headers "x-forwarded-proto"])
-                 (name (:scheme req)))))
+  (or (and *https-required*
+           (= "https" (or (get-in req [:headers "x-forwarded-proto"])
+                          (name (:scheme req)))))
+      true))
 
 (defn- remote-ip
   [req]
@@ -134,6 +138,22 @@
   [handler]
   (fn [req]
     (handler (assoc req :kaiao/remote-ip (remote-ip req)))))
+
+
+(def ^:private +cors-headers+
+  {"access-control-allow-methods" "GET, POST, OPTIONS"
+   "access-control-allow-origin" "*"
+   "access-control-allow-headers" "Content-Type"
+   "access-control-max-age" "3600"})
+
+(defn wrap-cors
+  [handler]
+  (fn [req]
+    (if (= :options (:request-method req))
+      {:status 204
+       :headers +cors-headers+}
+      (-> (handler req)
+          (update :headers #(merge +cors-headers+ %))))))
 
 
 (defn wrap-require-https
@@ -180,6 +200,7 @@
       wrap-content-negotiation
       wrap-response
       wrap-remote-ip
+      wrap-cors
       wrap-require-https
       wrap-exception-handler
       wrap-encode-response))

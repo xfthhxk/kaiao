@@ -54,7 +54,7 @@ create table "event" (
  , "url_query" varchar(500)
  , "referrer_path" varchar(500)
  , "referrer_query" varchar(500)
- , "referrer_domain" varchar(500)
+ , "referrer_host" varchar(500)
  , "page_title" varchar(500)
  , "created_at" timestamptz(6) default current_timestamp
  , constraint "event_pk" primary key ("id")

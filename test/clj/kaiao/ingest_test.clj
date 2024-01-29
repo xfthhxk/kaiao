@@ -36,12 +36,12 @@
            :project-id #uuid "1e891261-7208-4aa6-a9aa-76d64b274f05"
            :os "linux"
            :browser "firefox"
+           :ip-address "127.0.0.1"
            :data {:baked-good "scone"
                   :quantity 20
                   :price-each 3.5
                   :tags ["sweet" "savory" "buttery"]}}]
-    (ingest/create-session! {:body-params m
-                             :kaiao/remote-ip "127.0.0.1"})
+    (ingest/create-session! m {})
     (expect {:id session-id
              :project-id #uuid "1e891261-7208-4aa6-a9aa-76d64b274f05"
              :os "linux"
@@ -72,8 +72,26 @@
       (expect true (every? inst? (map :created-at found))))))
 
 
+(deftest identify-sesion!-test
+  (let [session-id  #uuid "48ebd7f0-9408-4803-a808-1a1b08e4d9b3"
+        project-id #uuid "1e891261-7208-4aa6-a9aa-76d64b274f05"
+        m {:id session-id
+           :project-id project-id
+           :os "linux"
+           :browser "firefox"}]
+    (ingest/create-session! m {})
+    (expect nil (:user-id (db/get-session session-id)))
+    (ingest/identify-session! {:session-id session-id
+                               :user {:id "LD"
+                                      :project-id project-id
+                                      :first-name "larry"
+                                      :last-name "david"
+                                      :email "larry.david@example.com"}}
+                              {})
+    (expect "LD" (:user-id (db/get-session session-id)))))
 
-(deftest create-event!-test
+
+(deftest create-events!-test
   (let [event-id  #uuid "48ebd7f0-9408-4803-a808-1a1b08e4d9b3"
         m {:id event-id
            :project-id #uuid "1e891261-7208-4aa6-a9aa-76d64b274f05"
@@ -85,7 +103,7 @@
                   :quantity 20
                   :price-each 3.5
                   :tags ["sweet" "savory" "buttery"]}}]
-    (ingest/create-event! {:body-params m})
+    (ingest/create-events! [m] {})
     (expect some? (db/get-event event-id))
     (expect {:event-id event-id
              :key "baked-good"
@@ -107,23 +125,3 @@
                  :json-value ["sweet" "savory" "buttery"]}}
               (set/project found [:event-id :key :string-value :int-value :decimal-value :json-value]))
       (expect true (every? inst? (map :created-at found))))))
-
-
-
-(deftest identify-sesion!-test
-  (let [session-id  #uuid "48ebd7f0-9408-4803-a808-1a1b08e4d9b3"
-        project-id #uuid "1e891261-7208-4aa6-a9aa-76d64b274f05"
-        m {:id session-id
-           :project-id project-id
-           :os "linux"
-           :browser "firefox"}]
-    (ingest/create-session! {:body-params m
-                             :kaiao/remote-ip "127.0.0.1"})
-    (expect nil (:user-id (db/get-session session-id)))
-    (ingest/identify-session! {:body-params {:session-id session-id
-                                             :user {:id "LD"
-                                                    :project-id project-id
-                                                    :first-name "larry"
-                                                    :last-name "david"
-                                                    :email "larry.david@example.com"}}})
-    (expect "LD" (:user-id (db/get-session session-id)))))

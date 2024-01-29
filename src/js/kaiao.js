@@ -1,36 +1,39 @@
-kaiao = {};
+this.kaiao = {};
 
-kaiao.merge = function(a,b) {
-  return {...a, ...b};
+kaiao.merge = function(a,b,c) {
+  return {...a, ...b, ...c};
 };
 
-kaiao.init = function(m) {
-  localStrorage.setItem("kaiao/config", JSON.stringify(m));
+kaiao.writeLS = function(theKey, m) {
+  localStorage.setItem(theKey, JSON.stringify(m));
 };
 
-kaiao.reset() {
-  localStorage.setItem("kaiao/session-id", window.crypto.randomUUID());
-}
-
-kaiao.sessionId = function() {
-  return localStorage.getItem("kaiao/session-id");
-};
-
-kaiao.projectVersionId = function() {
-  return localStorage.getItem("kaiao/project-version-id");
-};
-
-kaiao.config = function() {
-  let s = localStorage.getItem("kaiao/config");
+kaiao.readLS = function(theKey) {
+  let s = localStorage.getItem(theKey);
   if (null!=s) {
     return JSON.parse(s);
   }
-  return null;
+  return {};
+};
+
+kaiao.init = function(m) {
+  this.writeLS("kaiao/config", m);
+};
+
+kaiao.config = function() {
+  return this.readLS("kaiao/config");
+};
+
+kaiao.session = function() {
+  return this.readLS("kaiao/session");
+};
+
+kaiao.sessionId = function() {
+  return this.session()["id"];
 };
 
 kaiao.send = function(data) {
-  let config = kaiao.config();
-  let endpoint = config["kaiao/endpoint"];
+  let endpoint = this.config()["endpoint"];
   fetch(endpoint, {method: "POST",
                    headers: {"content-type": "application/json"},
                    redirect: "follow",
@@ -38,51 +41,63 @@ kaiao.send = function(data) {
 };
 
 kaiao.identify = function(user) {
-  let config = kaiao.config();
-  user["project-id"] = config["kaiao/project-id"];
-  kaiao.send({metadata: {op: "kaiao.op/identify"},
-        data: {user: user}});
+  user["project-id"] = this.projectId();
+  this.send({metadata: {op: "kaiao.op/identify"},
+             data: {user: user}});
 };
 
 kaiao.sessionStarted = function(data) {
   let sessionId = window.crypto.randomUUID();
-  localStorage.setItem("kaiao/session-id", sessionId);
-  let config = kaiao.config();
+  let now = new Date().getTime();
+  this.writeLS("kaiao/session", {"id": sessionId, "created-at": now});
+  let cfg = this.config();
   let defaults = {
-    "session-id": sessionId,
-    "project-id": config["kaiao/project-id"],
-    "project-version-id": config["kaiao/project-version-id"],
+    "id": sessionId,
+    "project-id": cfg["project-id"],
+    "project-version-id": cfg["project-version-id"],
     "hostname": window.location.hostname,
     "language": navigator.language,
     "screen-height": window.screen.height,
     "screen-width": window.screen.width,
-    "created-at": new Date().toISOString()
+    "created-at": now
   };
-  data = kaiao.merge(defaults, data);
-  kaiao.send({metadata: {op: "kaiao.op/session"},
-        data: data});
+  data = this.merge(defaults, data);
+  this.send({metadata: {op: "kaiao.op/session"},
+             data: data});
 };
 
 
 kaiao.track = function(data) {
   if ("string" === typeof data) {
-    data = {key: data};
+    data = {"name": data};
   }
-  let url = new URL(document.referrer);
+
+  let referrerInfo = {};
+  if (null!=document.referrer && document.referrer.length > 0) {
+    let url = new URL(document.referrer);
+    referrerInfo = {
+      "referrer-path": url.pathname,
+      "referrer-query": url.search,
+      "referrer-host": url.host
+    };
+  }
+
+  let cfg = this.config();
   let defaults = {
-    "event-id": window.crypto.randomUUID(),
-    "session-id": kaiao.sessionId(),
+    "id": window.crypto.randomUUID(),
+    "project-id": cfg["project-id"],
+    "session-id": this.sessionId(),
     "url-path": window.location.pathname,
     "url-query": window.location.search,
-    "referrer-path": url.pathname,
-    "referrer-query": url.search,
-    "referrer-domain": url.host,
     "page-title": document.title,
-    "created-at": new Date().toISOString()
+    "created-at": new Date().getTime()
   };
-  let data = kaiao.merge(defaults, data);
-  kaiao.send({metadata: {op: "kaiao.op/event"},
-        data: data});
+  data = this.merge(defaults,referrerInfo, data);
+  if (null == data["name"]) {
+    throw Error("event name is required");
+  }
+  this.send({metadata: {op: "kaiao.op/events"},
+             data: [data]});
 };
 
 window.kaiao = kaiao;

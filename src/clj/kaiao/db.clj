@@ -11,7 +11,8 @@
    [kaiao.system :refer [*db*]]
    [clojure.string :as str]
    [camel-snake-kebab.core :as csk])
-  (:import [java.sql ResultSet]))
+  (:import (java.sql ResultSet)
+           (java.time Instant)))
 
 (set! *warn-on-reflection* true)
 
@@ -54,8 +55,11 @@
 
 
 (defn- fnil-created-at
-  [m]
-  (or (:created-at m) (java.time.Instant/now)))
+  [{:keys [created-at]}]
+  (cond
+    (int? created-at) (Instant/ofEpochMilli created-at)
+    (string? created-at) (Instant/parse created-at)
+    :else (Instant/now)))
 
 (defn- ensure-uuid-fn
   [k]

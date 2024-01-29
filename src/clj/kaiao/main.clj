@@ -9,7 +9,6 @@
    [s-exp.hirundo.http.response :as response]
    [next.jdbc.connection :as jdbc.connection]
    [kaiao.system :refer [*server* *db*]]
-   [kaiao.flyway :as flyway]
    [kaiao.routes :as routes])
   (:import
    (com.zaxxer.hikari HikariDataSource)
@@ -77,16 +76,21 @@
   (alter-var-root #'*server* (constantly nil)))
 
 
+(defn- jdbc-url
+  [opts]
+  (or (:kaiao/jdbc-url opts)
+      (System/getenv "KAIAO_DB_URL")
+      (throw (ex-info "No :kiaoa/jdbc-url opt and no KAIAO_DB_URL in env" {:opts opts}))))
 
 (defn create-datasource
-  [{:keys [kaiao/jdbc-url]}]
+  [opts]
   (jdbc.connection/->pool
-   HikariDataSource {:jdbcUrl jdbc-url
+   HikariDataSource {:jdbcUrl (jdbc-url opts)
                      :reWriteBatchedInserts true}))
 
 (defn create-datasource!
   ([]
-   (create-datasource! {:kaiao/jdbc-url (System/getenv "KAIAO_DB_URL")}))
+   (create-datasource! {}))
   ([opts]
    (let [ds (create-datasource opts)]
      (alter-var-root #'*db* (constantly ds)))))
@@ -103,8 +107,7 @@
   (let [stop-fn (mu/start-publisher! {:type :console})]
     (alter-var-root #'stop-publisher-fn (constantly stop-fn))
     (create-datasource! opts)
-    (flyway/migrate! *db*) ;; TODO make configurable
-    (start-server!)))
+    (start-server! opts)))
 
 (defn stop-services!
   []
@@ -125,5 +128,4 @@
 (comment
   (start-services!)
   (stop-services!)
-
   )

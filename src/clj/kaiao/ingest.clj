@@ -1,6 +1,7 @@
 (ns kaiao.ingest
   (:require
    [kaiao.db :as db]
+   [clojure.string :as str]
    [next.jdbc :as jdbc]
    [kaiao.system :refer [*db*]]))
 
@@ -20,55 +21,71 @@
 
 (defn- data-rows
   "`m` is a map. Returns a seq of maps"
-  [parent-key parent-id created-at m]
-  (loop [ans (transient [])
-         [[k v :as kv] & more] m]
-    (if-not kv
-      (persistent! ans)
-      (recur (conj! ans {parent-key parent-id
+  ([parent-key parent-id created-at m]
+   (-> (transient [])
+       (data-rows parent-key parent-id created-at m)
+       persistent!))
+  ([ans parent-key parent-id created-at m]
+   (loop [ans ans
+          [[k v :as kv] & more] m]
+     (cond
+       (not kv) ans
+       (or (not v)
+           (and (string? v) (str/blank? v))
+           (and (coll? v) (empty? v))) (recur ans more)
+       :else (-> ans
+                 (conj! {parent-key parent-id
                          :key k
                          (->data-key v) v
                          :created-at created-at})
-             more))))
+                 (recur more))))))
 
 (defn create-session!
-  [{:keys [kaiao/remote-ip] :as req}]
-  (let [session (:body-params req)
-        created-at (or (:created-at session) (now))
+  [session _metadata]
+  (let [created-at (or (:created-at session) (now))
         session-data (data-rows :session-id (:id session) created-at (:data session))]
     (jdbc/with-transaction [txn *db*]
-      (db/insert-sessions! txn [(assoc session :ip-address remote-ip)])
+      (db/insert-sessions! txn [session])
       (db/insert-session-data! txn session-data))))
 
-(defn create-event!
-  [req]
-  (let [event (:body-params req)
-        created-at (or (:created-at event) (now))
-        event-data (data-rows :event-id (:id event) created-at (:data event))]
+(defn- events->events-data
+  [events]
+  (let [default-created-at (now)]
+    (loop [ans (transient [])
+           [e & more] events]
+      (if-not e
+        (persistent! ans)
+        (let [created-at (or (:created-at e) default-created-at)]
+          (recur (data-rows ans :event-id (:id e) created-at (:data e))
+                 more))))))
+
+(defn create-events!
+  [events _metadata]
+  (let [event-data (events->events-data events)]
     (jdbc/with-transaction [txn *db*]
-      (db/insert-events! txn [event])
+      (db/insert-events! txn events)
       (db/insert-event-data! txn event-data))))
 
 (defn identify-session!
-  [req]
-  (let [{:keys [session-id user]} (:body-params req)]
-    (db/put-users! [user])
-    (db/identify-session! session-id (:id user))))
+  [{:keys [session-id user] :as _data} _metadata]
+  (db/put-users! [user])
+  (db/identify-session! session-id (:id user)))
 
 
 (defn track!
   [req]
   (let [{:keys [data metadata]} (:body-params req)
+        remote-ip (:kaiao/remote-ip req)
         f (case (-> metadata :op keyword)
-            :kaiao.op/session create-session!
-            :kaiao.op/event create-event!
+            :kaiao.op/session (fn [data metadata]
+                                (-> data
+                                    (assoc :ip-address remote-ip)
+                                    (create-session! metadata)))
+            :kaiao.op/events create-events!
             :kaiao.op/identify identify-session!
             (constantly :kaiao/invalid-request))
-        res (f data)]
+        res (f data metadata)]
     (when (= :kaiao/invalid-request res)
       {:status 400
        :headers {}
        :body {:error "invalid request op"}})))
-
-
-;; referrer-host instead of referrer-domain

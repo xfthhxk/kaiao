@@ -1,9 +1,6 @@
 (ns dev
   (:require [clojure.repl]
-            [next.jdbc :as jdbc]
-            [next.jdbc.quoted :as quoted]
             [kaiao.main :as main]
-            [kaiao.flyway :as flyway]
             [kaiao.routes :as routes]))
 
 
@@ -11,11 +8,13 @@
 
 (defn enable-dev-hacks!
   []
-  (alter-var-root #'routes/https? (constantly true)))
+  (alter-var-root #'routes/*https-required* (constantly false)))
 
 (defn start!
   []
-  (main/start-services! {:kaiao/jdbc-url +jdbc-url+}))
+  (main/start-services! {:kaiao/jdbc-url +jdbc-url+
+                         :kaiao/http-port 9000})
+  (enable-dev-hacks!))
 
 (defn restart!
   []
@@ -23,17 +22,6 @@
   (start!))
 
 
-(defn re-init-db!
-  []
-  (with-open [db (main/create-datasource {:kaiao/jdbc-url +jdbc-url+})]
-    (doseq [tbl ["event" "event_data" "project" "session" "session_data" "user" "flyway_schema_history"]]
-      (try
-        (jdbc/execute-one! db [(str "drop table " (quoted/postgres tbl))])
-        (catch java.sql.SQLException ex
-          (println (ex-message ex)))))
-    (flyway/migrate! db)))
-
 (comment
   (restart!)
-  (re-init-db!)
   )
