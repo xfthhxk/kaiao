@@ -7,8 +7,13 @@
 (def version (format "0.1.%s" (b/git-count-revs nil)))
 (def class-dir "target/classes")
 (def jar-file (format "target/%s-%s.jar" (name lib) version))
+(def uber-jar-file (format "target/%s-%s-uber.jar" (name lib) version))
 (def clj-src-dirs ["src/clj"])
 (def java-src-dirs ["src/java"])
+
+(defn git-sha
+  []
+  (b/git-process {:git-args "rev-parse --short HEAD"}))
 
 (def basis (delay (b/create-basis {:project "deps.edn"})))
 
@@ -20,6 +25,7 @@
   (println "jar-file:" jar-file))
 
 (defn clean [_]
+  (println "Cleaning ...")
   (b/delete {:path "target"}))
 
 (defn compile-clj [_]
@@ -57,6 +63,22 @@
                :target-dir class-dir})
   (b/jar {:class-dir class-dir
           :jar-file jar-file}))
+
+(defn uber
+  [opts]
+  (clean nil)
+  (compile-clj nil)
+  (b/copy-dir {:src-dirs (conj clj-src-dirs "resources")
+               :target-dir class-dir})
+  (-> {:main 'kaiao.main
+       :manifest {"git-sha" (git-sha)}
+       :uber-file uber-jar-file
+       :src-dirs clj-src-dirs
+       :class-dir class-dir
+       :ns-compile '[kaiao.main]
+       :basis @basis}
+      (merge opts)
+      b/uber))
 
 (defn install [_]
   (jar nil)

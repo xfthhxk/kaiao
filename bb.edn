@@ -16,6 +16,10 @@
   {:doc "Builds a jar file"
    :task (shell "clojure -T:build jar")}
 
+  build:uberjar
+  {:doc "Builds a jar file"
+   :task (shell "clojure -T:build uber")}
+
 
   install
   {:doc "Install into local Maven repo cache"
