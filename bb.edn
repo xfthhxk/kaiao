@@ -1,5 +1,38 @@
 {:tasks
- {clean
+ {:requires ([clojure.edn :as edn]
+             [clojure.string :as str])
+  :init
+  (do
+    (defn exit!
+      ([status]
+        (System/exit status))
+      ([status msg]
+        (println msg)
+        (System/exit status)))
+
+    (defn parse-args
+      "Parse a seq of args into a map with edn data"
+      ([] (parse-args *command-line-args*))
+      ([args]
+        (let [parse-arg-fn (fn [x] (some-> x str/trim edn/read-string))
+              on-ex-fn (fn [ex] (exit! -1 (str "Error parsing cli args: " (ex-message ex))))]
+          (->> args
+              (mapv parse-arg-fn)
+              (apply hash-map)
+              (parse-args on-ex-fn))))
+      ([on-ex-fn args]
+        (try
+          (cond
+            (map? args) args
+            (and (sequential? args)
+                (even? (count args))) (into {} (for [[k v] (partition 2 args)]
+                                                  [(edn/read-string k) v]))
+            :else  (on-ex-fn (ex-info "Even number of args required"
+                                      {:args args :count (count args)})))
+          (catch Throwable t
+            (on-ex-fn t))))))
+
+  clean
   {:doc "Cleans up any build artifacts"
    :task (shell "clojure -T:build clean")}
 
@@ -20,6 +53,35 @@
   {:doc "Builds a jar file"
    :task (shell "clojure -T:build uber")}
 
+  build:uberjar:gcp
+  {:doc "Builds a jar file"
+   :task (shell "clojure -T:gcp:build uber")}
+
+  build:docker-image
+  {:doc "Builds a docker image. args: `:docker/registry` `:docker/image-name` and `:docker/image-tag`"
+   :task (let [{:keys [docker/registry
+                       docker/image-name
+                       docker/image-tag]
+                :or {image-name "kaiao"
+                     image-tag "latest"
+                     registry "docker.io/xfthhxk"}} (parse-args *command-line-args*)
+               image (format "%s/%s:%s" registry image-name image-tag)
+               docker-cmd (str "docker build -t " image " .")]
+           (println "docker cmd: " docker-cmd)
+           (shell docker-cmd)
+           (println "Docker image created: " image))}
+
+  build:docker-image:gcp
+  {:doc "Builds a docker image for GCP using IAM for Cloud SQL access."
+   :depends [build:uberjar:gcp build:docker-image]}
+
+  build:native-image
+  {:doc "Builds a native image"
+   :task (shell "native-image --no-fallback -jar target/kaiao-uber.jar")}
+
+  build:gen-native-image-config
+  {:doc "Builds a native image config by running the service with the agent"
+   :task (shell "java -agentlib:native-image-agent=config-output-dir=META-INF/native-image -jar target/kaiao-uber.jar")}
 
   install
   {:doc "Install into local Maven repo cache"
@@ -34,21 +96,21 @@
 
   cider
   {:doc "Runs the repl"
-   :task (shell "clj -M:dev:test:debug:cider")}
+   :task (shell "clj -M:dev:test:flyway:debug:cider")}
 
   test
   {:doc "Runs clojure tests"
-   :task (shell "clojure -M:dev:test default")}
+   :task (shell "clojure -M:dev:flyway:test default")}
 
   test:ff
   {:doc "Runs clojure tests stopping on first failure."
-   :task (shell "clojure -M:dev:test default --fail-fast")}
+   :task (shell "clojure -M:dev:flyway:test default --fail-fast")}
 
   test:focus
   {:doc "Runs a specific clojure tests referenced by namespace or fully qualified var."
    :task (let [named-test (first *command-line-args*)]
            (when-not named-test
-             (lib/sys-exit 1 "no namespace or fully qualified var specified"))
+             (exit! 1 "no namespace or fully qualified var specified"))
            (shell (str "clojure -M:dev:test --focus " named-test)))}
 
   db:migrate!

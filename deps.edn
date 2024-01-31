@@ -24,6 +24,10 @@
 
   :dev {:extra-paths ["dev/src"]}
 
+  :gcp
+  {:extra-deps
+   {com.google.cloud.sql/postgres-socket-factory {:mvn/version "1.15.1"}}}
+
   :flyway
   {:extra-paths ["src/db"]
    :extra-deps

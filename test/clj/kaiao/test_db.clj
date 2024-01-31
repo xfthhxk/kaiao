@@ -6,7 +6,7 @@
   (:require [clj-test-containers.core :as tc]
             [next.jdbc :as jdbc]
             [next.jdbc.sql :as sql]
-            [kaiao.flyway :as flyway]
+            [flyway :as flyway]
             [next.jdbc.connection :as jdbc.connection])
   (:import (com.zaxxer.hikari HikariDataSource)))
 
@@ -78,8 +78,16 @@
                     assoc
                     :host (:host *pg-container*)
                     :port (get (:mapped-ports *pg-container*) +pg-port+))
-    (with-open [ds (jdbc.connection/->pool HikariDataSource +db-spec+)]
-      (flyway/migrate! ds))
+    (flyway/migrate! {:jdbc-url (str "jdbc:"
+                                     (:dbtype +db-spec+)
+                                     "://"
+                                     (:host +db-spec+)
+                                     ":"
+                                     (:port +db-spec+)
+                                     "/"
+                                     (:dbname +db-spec+))
+                      :user +pg-user+
+                      :password +pg-password+})
     (produce-db!)
     (start-db-producer!)))
 

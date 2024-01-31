@@ -2,6 +2,7 @@
   (:gen-class)
   (:require
    [clojure.java.io :as io]
+   [clojure.string :as str]
    [com.brunobonacci.mulog :as mu]
    [s-exp.hirundo :as hirundo]
    [s-exp.hirundo.options :as options]
@@ -65,7 +66,9 @@
   (when-not *server*
     (let [srv (hirundo/start!
                {:http-handler #'routes/router
-                :port (:kaiao/http-port opts 8080)})]
+                :port (or (:kaiao/http-port opts)
+                          (some-> "PORT" System/getenv parse-long int)
+                          8080)})]
       (alter-var-root #'*server* (constantly srv))
       (mu/log :kaiao/server-started))))
 
@@ -101,11 +104,29 @@
   (when *db*
     (.close ^java.io.Closeable *db*)))
 
+(defn url-rewrite-fn
+  [prefix]
+  (let [n (count prefix)]
+    (if (str/blank? prefix)
+      identity
+      (fn [{:keys [uri] :as req}]
+        (if (str/starts-with? uri prefix)
+          (update req :uri subs n)
+          req)))))
+
+(defn setup-url-rewrite!
+  ([] (setup-url-rewrite! {}))
+  ([{:keys [kaiao/routes-prefix]}]
+   (let [routes-prefix (or routes-prefix
+                           (System/getenv "KAIAO_ROUTES_PREFIX"))]
+     (mu/log :kaiao/setup-url-rewrite :kaiao/routes-prefix routes-prefix)
+     (alter-var-root #'routes/*uri-rewrite-fn* (constantly (url-rewrite-fn routes-prefix))))))
 
 (defn start-services!
   [& {:as opts}]
   (let [stop-fn (mu/start-publisher! {:type :console})]
     (alter-var-root #'stop-publisher-fn (constantly stop-fn))
+    (setup-url-rewrite! opts)
     (create-datasource! opts)
     (start-server! opts)))
 

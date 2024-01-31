@@ -13,7 +13,8 @@
 (defn start!
   []
   (main/start-services! {:kaiao/jdbc-url +jdbc-url+
-                         :kaiao/http-port 9000})
+                         :kaiao/http-port 9000
+                         :kaiao/routes-prefix ""})
   (enable-dev-hacks!))
 
 (defn restart!

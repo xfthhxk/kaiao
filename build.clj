@@ -6,8 +6,8 @@
 (def lib 'xfthhxk/kaiao)
 (def version (format "0.1.%s" (b/git-count-revs nil)))
 (def class-dir "target/classes")
-(def jar-file (format "target/%s-%s.jar" (name lib) version))
-(def uber-jar-file (format "target/%s-%s-uber.jar" (name lib) version))
+(def jar-file "target/kaiao.jar")
+(def uber-jar-file "target/kaiao-uber.jar")
 (def clj-src-dirs ["src/clj"])
 (def java-src-dirs ["src/java"])
 

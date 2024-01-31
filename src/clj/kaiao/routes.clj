@@ -14,6 +14,7 @@
    [cognitect.transit :as transit]))
 
 (defonce ^:dynamic *https-required* true)
+(defonce ^:dynamic *uri-rewrite-fn* identity)
 
 (defn <-transit
   [in]
@@ -173,10 +174,11 @@
     (try
       (handler req)
       (catch Throwable t
+        (println t)
         (mu/log :kaiao/unhandled-exception :exception t)
         {:status 500
-         :headers {"content-type" "text/plain"}
-         :body "server error"}))))
+         :headers {"content-type" "application/json"}
+         :body {:error "server error"}}))))
 
 
 
@@ -186,16 +188,24 @@
    :headers {}
    :body {:error "not found"}})
 
+(defn wrap-uri-rewrite
+  [handler]
+  (fn [req]
+    (handler (*uri-rewrite-fn* req))))
+
 (def routes
   {"GET /ping" pong
    "POST /track" #'kaiao.ingest/track!
    "* /**" not-found})
 
 
+
+
 (def router
   (-> routes
       router/router
       ring.params/wrap-params
+      wrap-uri-rewrite
       wrap-decode-request
       wrap-content-negotiation
       wrap-response
