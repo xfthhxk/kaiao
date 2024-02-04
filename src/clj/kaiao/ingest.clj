@@ -21,11 +21,11 @@
 
 (defn- data-rows
   "`m` is a map. Returns a seq of maps"
-  ([parent-key parent-id created-at m]
+  ([parent-key parent-id m]
    (-> (transient [])
-       (data-rows parent-key parent-id created-at m)
+       (data-rows parent-key parent-id m)
        persistent!))
-  ([ans parent-key parent-id created-at m]
+  ([ans parent-key parent-id m]
    (loop [ans ans
           [[k v :as kv] & more] m]
      (cond
@@ -36,53 +36,55 @@
        :else (-> ans
                  (conj! {parent-key parent-id
                          :key k
-                         (->data-key v) v
-                         :created-at created-at})
+                         (->data-key v) v})
                  (recur more))))))
 
 (defn create-session!
-  [session _metadata]
-  (let [created-at (or (:created-at session) (now))
-        session-data (data-rows :session-id (:id session) created-at (:data session))]
+  [session {:keys [user] :as _metadata}]
+  (let [session-data (data-rows :session-id (:id session) (:data session))]
     (jdbc/with-transaction [txn *db*]
       (db/insert-sessions! txn [session])
-      (db/insert-session-data! txn session-data))))
-
-(defn- events->events-data
-  [events]
-  (let [default-created-at (now)]
-    (loop [ans (transient [])
-           [e & more] events]
-      (if-not e
-        (persistent! ans)
-        (let [created-at (or (:created-at e) default-created-at)]
-          (recur (data-rows ans :event-id (:id e) created-at (:data e))
-                 more))))))
-
-(defn create-events!
-  [events _metadata]
-  (let [event-data (events->events-data events)]
-    (jdbc/with-transaction [txn *db*]
-      (db/insert-events! txn events)
-      (db/insert-event-data! txn event-data))))
+      (db/insert-session-data! txn session-data)
+      (when user
+        (db/put-users! [user])))))
 
 (defn identify-session!
   [{:keys [session-id user] :as _data} _metadata]
   (db/put-users! [user])
   (db/identify-session! session-id (:id user)))
 
+(defn session-ended!
+  [{:keys [id ended-at]} _metadata]
+  (db/end-session! id (or ended-at (now))))
+
+(defn- events->events-data
+  [events]
+  (loop [ans (transient [])
+         [e & more] events]
+    (if-not e
+      (persistent! ans)
+      (recur (data-rows ans :event-id (:id e) (:data e))
+             more))))
+
+(defn create-events!
+  [{:keys [events]} _metadata]
+  (let [event-data (events->events-data events)]
+    (jdbc/with-transaction [txn *db*]
+      (db/insert-events! txn events)
+      (db/insert-event-data! txn event-data))))
 
 (defn track!
   [req]
   (let [{:keys [data metadata]} (:body-params req)
         remote-ip (:kaiao/remote-ip req)
         f (case (-> metadata :op keyword)
-            :kaiao.op/session (fn [data metadata]
-                                (-> data
-                                    (assoc :ip-address remote-ip)
-                                    (create-session! metadata)))
-            :kaiao.op/events create-events!
+            :kaiao.op/session-started (fn [data metadata]
+                                        (-> data
+                                            (assoc :ip-address remote-ip)
+                                            (create-session! metadata)))
             :kaiao.op/identify identify-session!
+            :kaiao.op/session-ended session-ended!
+            :kaiao.op/events create-events!
             (constantly :kaiao/invalid-request))
         res (f data metadata)]
     (when (= :kaiao/invalid-request res)

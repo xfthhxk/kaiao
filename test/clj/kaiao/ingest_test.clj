@@ -13,17 +13,14 @@
 (deftest data-rows-test
   (expect [{:event-id "23"
             :key :a
-            :int-value 1
-            :created-at "2024-01-23T20:18:10.735063053Z"}
+            :int-value 1}
            {:event-id "23"
             :key :b
-            :string-value "string"
-            :created-at "2024-01-23T20:18:10.735063053Z"}
+            :string-value "string"}
            {:event-id "23"
             :key :c
-            :string-value :key
-            :created-at "2024-01-23T20:18:10.735063053Z"}]
-          (#'ingest/data-rows :event-id "23" "2024-01-23T20:18:10.735063053Z"
+            :string-value :key}]
+          (#'ingest/data-rows :event-id "23"
                               {:a 1
                                :b "string"
                                :c :key})))
@@ -42,19 +39,25 @@
                   :price-each 3.5
                   :tags ["sweet" "savory" "buttery"]}}]
     (ingest/create-session! m {})
-    (expect {:id session-id
-             :project-id #uuid "1e891261-7208-4aa6-a9aa-76d64b274f05"
-             :os "linux"
-             :browser "firefox"
-             :ip-address "127.0.0.1"}
-            (-> (db/get-session session-id)
-                (select-keys domain/+allowed-session-keys+)
-                (dissoc :created-at)))
-    (expect {:session-id session-id
-             :key "baked-good"
-             :string-value "scone"}
-            (-> (db/get-session-data session-id :baked-good)
-                (select-keys [:session-id :key :string-value])))
+
+    (let [found (-> (db/get-session session-id)
+                    (select-keys domain/+allowed-session-keys+))]
+      (expect {:id session-id
+               :project-id #uuid "1e891261-7208-4aa6-a9aa-76d64b274f05"
+               :os "linux"
+               :browser "firefox"
+               :ip-address "127.0.0.1"}
+              (-> found
+                  (select-keys domain/+allowed-session-keys+)
+                  (dissoc :created-at :started-at)))
+      (expect inst? (:started-at found))
+      (expect nil (:ended-at found))
+      (expect {:session-id session-id
+               :key "baked-good"
+               :string-value "scone"}
+              (-> (db/get-session-data session-id :baked-good)
+                  (select-keys [:session-id :key :string-value]))))
+
     (let [found (db/get-session-data session-id)]
       (expect #{{:session-id session-id
                  :key "baked-good"
@@ -90,6 +93,18 @@
                               {})
     (expect "LD" (:user-id (db/get-session session-id)))))
 
+(deftest sesion-ended!-test
+  (let [session-id  #uuid "48ebd7f0-9408-4803-a808-1a1b08e4d9b3"
+        project-id #uuid "1e891261-7208-4aa6-a9aa-76d64b274f05"
+        m {:id session-id
+           :project-id project-id
+           :os "linux"
+           :browser "firefox"}]
+    (ingest/create-session! m {})
+    (expect nil (:user-id (db/get-session session-id)))
+    (ingest/session-ended! {:id session-id :ended-at (ingest/now)} {})
+    (expect inst? (:ended-at (db/get-session session-id)))))
+
 
 (deftest create-events!-test
   (let [event-id  #uuid "48ebd7f0-9408-4803-a808-1a1b08e4d9b3"
@@ -103,7 +118,7 @@
                   :quantity 20
                   :price-each 3.5
                   :tags ["sweet" "savory" "buttery"]}}]
-    (ingest/create-events! [m] {})
+    (ingest/create-events! {:events [m]} {})
     (expect some? (db/get-event event-id))
     (expect {:event-id event-id
              :key "baked-good"

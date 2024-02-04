@@ -3,16 +3,15 @@
             [kaiao.main :as main]
             [kaiao.routes :as routes]))
 
-
-(def +jdbc-url+ "jdbc:postgresql://localhost:5400/kaiao-db?user=foo&password=bar")
-
 (defn enable-dev-hacks!
   []
   (alter-var-root #'routes/*https-required* (constantly false)))
 
 (defn start!
   []
-  (main/start-services! {:kaiao/jdbc-url +jdbc-url+
+  (main/start-services! {:kaiao/db-url "jdbc:postgresql://localhost:5400/kaiao-db"
+                         :kaiao/db-user "foo"
+                         :kaiao/db-password "bar"
                          :kaiao/http-port 9000
                          :kaiao/routes-prefix ""})
   (enable-dev-hacks!))

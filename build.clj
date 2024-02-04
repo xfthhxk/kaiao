@@ -15,11 +15,21 @@
   []
   (b/git-process {:git-args "rev-parse --short HEAD"}))
 
-(def basis (delay (b/create-basis {:project "deps.edn"})))
+(defonce ^:dynamic *basis* (delay nil))
+
+(defn set-basis!
+  [m]
+  (let [d (-> {:project "deps.edn"}
+              (merge m)
+              b/create-basis
+              delay)]
+    (alter-var-root #'*basis* (constantly d))))
+
+(set-basis! {})
 
 (defn show-defaults [_]
   (println "default-basis:")
-  (pprint/pprint @basis)
+  (pprint/pprint @*basis*)
   (println "target:" "target")
   (println "class-dir:" class-dir)
   (println "jar-file:" jar-file))
@@ -32,7 +42,7 @@
   (println "Compiling clj...")
   (b/compile-clj {:src-dirs clj-src-dirs
                   :class-dir class-dir
-                  :basis @basis}))
+                  :basis @*basis*}))
 
 
 (defn- pom-template [version]
@@ -56,7 +66,7 @@
   (b/write-pom {:class-dir class-dir
                 :lib lib
                 :version version
-                :basis @basis
+                :basis @*basis*
                 :src-dirs clj-src-dirs
                 :pom-data (pom-template version)})
   (b/copy-dir {:src-dirs (conj clj-src-dirs "resources")
@@ -65,7 +75,12 @@
           :jar-file jar-file}))
 
 (defn uber
-  [opts]
+  [{:keys [aliases] :as opts}]
+  (prn opts)
+  (let [aliases (remove nil? aliases)
+        m (cond-> {}
+            (seq aliases) (assoc :aliases aliases))]
+    (set-basis! m))
   (clean nil)
   (compile-clj nil)
   (b/copy-dir {:src-dirs (conj clj-src-dirs "resources")
@@ -76,8 +91,8 @@
        :src-dirs clj-src-dirs
        :class-dir class-dir
        :ns-compile '[kaiao.main]
-       :basis @basis}
-      (merge opts)
+       :basis @*basis*}
+      (merge (dissoc opts :aliases))
       b/uber))
 
 (defn install [_]
@@ -92,3 +107,9 @@
               :artifact (b/resolve-path jar-file)
               :pom-file (b/pom-path {:lib lib
                                      :class-dir class-dir})}))
+
+
+(comment
+  (set-basis! {:aliases [:gcp]})
+  @*basis*
+  )

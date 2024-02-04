@@ -54,24 +54,37 @@
   {:builder-fn as-maps})
 
 
-(defn- fnil-created-at
-  [{:keys [created-at]}]
+(defn coerce-instant
+  [x]
   (cond
-    (int? created-at) (Instant/ofEpochMilli created-at)
-    (string? created-at) (Instant/parse created-at)
-    :else (Instant/now)))
+    (inst? x) x
+    (int? x) (Instant/ofEpochMilli x)
+    (string? x) (Instant/parse x)
+    :else nil))
+
+(defn- as-instant-fn
+  [k & {:keys [optional?]}]
+  (fn [m]
+    (or (some-> (get m k) coerce-instant)
+        (when-not optional? (Instant/now)))))
+
+(defn- coerce-uuid
+  [x]
+  (cond
+    (uuid? x) x
+    (string? x) (java.util.UUID/fromString x)
+    :else nil))
 
 (defn- ensure-uuid-fn
   [k]
   (fn [m]
-    (when-let [v (get m k)]
-      (cond
-        (uuid? v) v
-        (string? v) (java.util.UUID/fromString v)
-        :else (throw (ex-info "Invalid uuid" {:v v}))))))
+    (or (some-> (get m k) coerce-uuid)
+        (throw (ex-info "Invalid uuid" {:x (get m k)})))))
 
 (def ^:private key->extractor-fn
-  {:created-at fnil-created-at
+  {:started-at (as-instant-fn :started-at)
+   :ended-at (as-instant-fn :ended-at :optional? true)
+   :occurred-at (as-instant-fn :occurred-at)
    :project-id (ensure-uuid-fn :project-id)
    :session-id (ensure-uuid-fn :session-id)
    :event-id (ensure-uuid-fn :event-id)
@@ -131,6 +144,7 @@
 
 (defn put-users!
   [xs]
+  (let [ks (disj domain/+allowed-user-keys+ )])
   (jdbc/execute-batch!
    *db*
    (str "insert into " (quoted/postgres "user")
@@ -175,13 +189,12 @@
 
 (defn identify-session!
   [session-id user-id]
-  (jdbc/execute-batch!
-   *db*
-   (str "update " (quoted/postgres "session")
-        "set user_id = ? "
-        "where id = ?")
-   [[user-id session-id]]
-   {}))
+  (sql/update! *db* :session {:user_id user-id} [" id = ?" (coerce-uuid session-id)]))
+
+
+(defn end-session!
+  [session-id ended-at]
+  (sql/update! *db* :session {:ended_at (coerce-instant ended-at)} [" id = ?" (coerce-uuid session-id)]))
 
 
 ;;----------------------------------------------------------------------

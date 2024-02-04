@@ -55,7 +55,7 @@
 
   build:uberjar:gcp
   {:doc "Builds a jar file"
-   :task (shell "clojure -T:gcp:build uber")}
+   :task (shell "clojure -T:gcp:build uber :aliases [:gcp]")}
 
   build:docker-image
   {:doc "Builds a docker image. args: `:docker/registry` `:docker/image-name` and `:docker/image-tag`"
@@ -94,7 +94,7 @@
    :task (shell "clojure -T:build deploy")}
 
 
-  cider
+  dev:cider
   {:doc "Runs the repl"
    :task (shell "clj -M:dev:test:flyway:debug:cider")}
 

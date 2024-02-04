@@ -4,12 +4,14 @@
 (defn allowed-keys
   "returns a set of allowed keys for the given map spec"
   [spec-kw]
-  (->> (s/describe spec-kw)
-       (filter vector?)
-       (sequence cat)
-       (map name)
-       (map keyword)
-       (into (sorted-set))))
+  (disj (->> (s/describe spec-kw)
+             (filter vector?)
+             (sequence cat)
+             (map name)
+             (map keyword)
+             (into (sorted-set)))
+        :created-at
+        :updated-at))
 
 (defn instant?
   [x]
@@ -19,8 +21,11 @@
 (s/def :kaiao/project-id uuid?)
 (s/def :kaiao/name string?)
 (s/def :kaiao/domain string?)
-(s/def :kaiao/created-at instant?)
-(s/def :kaiao/updated-at instant?)
+(s/def :kaiao/created-at instant?) ;; when recorded in system
+(s/def :kaiao/updated-at instant?) ;; when updated in system
+(s/def :kaiao/started-at instant?) ;; actual event time
+(s/def :kaiao/ended-at instant?) ;; actual event time
+(s/def :kaiao/occurred-at instant?) ;; actual event time
 (s/def :kaiao/user-id string?)
 (s/def :kaiao/email string?)
 (s/def :kaiao/first-name string?)
@@ -98,6 +103,8 @@
                    :kaiao/city
                    :kaiao/subdivision-1
                    :kaiao/subdivision-2
+                   :kaiao/started-at
+                   :kaiao/ended-at
                    :kaiao/created-at
                    :kaiao/updated-at]))
 
@@ -113,7 +120,8 @@
                    :kaiao/referrer-query
                    :kaiao/referrer-host
                    :kaiao/page-title
-                   :kaiao/created-at]))
+                   :kaiao/created-at
+                   :kaiao/occurred-at]))
 
 (s/def :kaiao/event-data
   (s/keys :req-un [:kaiao/event-id

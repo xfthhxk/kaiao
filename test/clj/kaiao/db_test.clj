@@ -3,7 +3,8 @@
    [clojure.test :refer [deftest use-fixtures]]
    [expectations.clojure.test :refer [expect]]
    [kaiao.test :as test]
-   [kaiao.db :as db]))
+   [kaiao.db :as db])
+  (:import (java.time Instant)))
 
 (use-fixtures :each test/with-system)
 
@@ -74,6 +75,25 @@
     (expect "42" (:user-id (db/get-session id)))))
 
 
+(deftest end-session!-test
+  (let [id #uuid "55d26c2c-dac9-43ed-afaa-ed0e4f84d706"
+        s {:id id
+           :project-id #uuid "b2c33bd3-32f6-4446-8add-3473192e26d4"
+           :hostname "my-host"
+           :browser "chrome"
+           :os "linux"
+           :device "Mac"
+           :screen-height 1200
+           :screen-width 1800
+           :language "en"
+           :ip-address "127.0.0.1"
+           :country "us"
+           :city "santa fe"}]
+    (db/insert-sessions! [s])
+    (expect some? (db/get-session id))
+    (expect nil (:ended-at (db/get-session id)))
+    (db/end-session! id (Instant/now))
+    (expect inst? (:ended-at (db/get-session id)))))
 
 (deftest insert-events!-test
   (let [id #uuid "3cc7b1a0-fecc-44ed-ad16-59880b02c503"

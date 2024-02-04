@@ -2,6 +2,7 @@
   (:gen-class)
   (:require
    [clojure.java.io :as io]
+   [clojure.edn :as edn]
    [clojure.string :as str]
    [com.brunobonacci.mulog :as mu]
    [s-exp.hirundo :as hirundo]
@@ -79,16 +80,15 @@
   (alter-var-root #'*server* (constantly nil)))
 
 
-(defn- jdbc-url
-  [opts]
-  (or (:kaiao/jdbc-url opts)
-      (System/getenv "KAIAO_DB_URL")
-      (throw (ex-info "No :kiaoa/jdbc-url opt and no KAIAO_DB_URL in env" {:opts opts}))))
-
 (defn create-datasource
-  [opts]
+  [{:keys [kaiao/db-url kaiao/db-user kaiao/db-password] :as opts}]
+  (assert db-url "db-url is required")
+  (assert db-user "db-user is required")
+  (assert db-password "db-password is required")
   (jdbc.connection/->pool
-   HikariDataSource {:jdbcUrl (jdbc-url opts)
+   HikariDataSource {:jdbcUrl db-url
+                     :username db-user
+                     :password db-password
                      :reWriteBatchedInserts true}))
 
 (defn create-datasource!
@@ -137,13 +137,24 @@
   (when stop-publisher-fn
     (stop-publisher-fn)))
 
+(defn env-opts
+  []
+  {:kaiao/db-url (System/getenv "KAIAO_DB_URL")
+   :kaiao/db-user (System/getenv "KAIAO_DB_USER")
+   :kaiao/db-password (System/getenv "KAIAO_DB_PASSWORD")})
 
 (defn -main
-  [& _args]
+  [& args]
+  (when-not (even? (count args))
+    (println "kaiao.main/-main: Even number of args expected")
+    (System/exit 1))
   (-> (Runtime/getRuntime)
       (.addShutdownHook (Thread. ^Runnable stop-services!)))
-  (mu/log :kaiao/main :git/sha (git-sha))
-  (start-services!))
+  (let [cli-opts (->> args
+                      (map edn/read-string)
+                      (apply hash-map))]
+    (mu/log :kaiao/main :git/sha (git-sha))
+    (start-services! (merge (env-opts) cli-opts))))
 
 
 (comment

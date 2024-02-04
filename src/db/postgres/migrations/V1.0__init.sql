@@ -2,8 +2,8 @@ create table "project" (
    "id" uuid not null
  , "name" varchar(100) not null
  , "domain" varchar(500)
- , "created_at" timestamptz(6) default current_timestamp
- , "updated_at" timestamptz(6) default current_timestamp
+ , "created_at" timestamptz(6) not null default current_timestamp
+ , "updated_at" timestamptz(6) not null default current_timestamp
  , constraint "project_pk" primary key ("id")
 );
 
@@ -17,8 +17,8 @@ create table "user" (
   , "org_id" varchar(100)
   , "org_name" varchar(100)
   , "tags" jsonb
-  , "created_at" timestamptz(6) default current_timestamp
-  , "updated_at" timestamptz(6)
+  , "created_at" timestamptz(6) not null default current_timestamp
+  , "updated_at" timestamptz(6) not null default current_timestamp
   , constraint "user_pk" primary key ("id", "project_id")
 );
 
@@ -39,8 +39,10 @@ create table "session" (
  , "city" varchar(50)
  , "subdivision_1" varchar(20)
  , "subdivision_2" varchar(50)
- , "created_at" timestamptz(6) default current_timestamp
- , "updated_at" timestamptz(6) default current_timestamp
+ , "started_at" timestamptz(6) not null
+ , "ended_at" timestamptz(6)
+ , "created_at" timestamptz(6) not null default current_timestamp
+ , "updated_at" timestamptz(6) not null default current_timestamp
  , constraint "session_pk" primary key ("id")
 );
 
@@ -56,7 +58,8 @@ create table "event" (
  , "referrer_query" varchar(500)
  , "referrer_host" varchar(500)
  , "page_title" varchar(500)
- , "created_at" timestamptz(6) default current_timestamp
+ , "occurred_at" timestamptz(6) not null default current_timestamp
+ , "created_at" timestamptz(6) not null default current_timestamp
  , constraint "event_pk" primary key ("id")
 );
 
@@ -69,7 +72,7 @@ create table "event_data" (
  , "decimal_value" decimal(19,4)
  , "timestamp_value" timestamptz(6)
  , "json_value" jsonb
- , "created_at" timestamptz(6) default current_timestamp
+ , "created_at" timestamptz(6) not null default current_timestamp
  , constraint "event_data_pk" primary key ("event_id", "key")
 );
 
@@ -82,7 +85,7 @@ create table "session_data" (
  , "decimal_value" decimal(19,4)
  , "timestamp_value" timestamptz(6)
  , "json_value" jsonb
- , "created_at" timestamptz(6) default current_timestamp
+ , "created_at" timestamptz(6) not null default current_timestamp
  , constraint "session_data_pk" primary key ("session_id", "key")
 );
 

@@ -32,6 +32,11 @@ kaiao.sessionId = function() {
   return this.session()["id"];
 };
 
+
+kaiao.projectId = function() {
+  return this.config()["project-id"];
+};
+
 kaiao.send = function(data) {
   let endpoint = this.config()["endpoint"];
   fetch(endpoint, {method: "POST",
@@ -40,16 +45,12 @@ kaiao.send = function(data) {
                    body: JSON.stringify(data)});
 };
 
-kaiao.identify = function(user) {
-  user["project-id"] = this.projectId();
-  this.send({metadata: {op: "kaiao.op/identify"},
-             data: {user: user}});
-};
-
-kaiao.sessionStarted = function(data) {
+kaiao.sessionStarted = function(data, user = null) {
   let sessionId = window.crypto.randomUUID();
   let now = new Date().getTime();
+
   this.writeLS("kaiao/session", {"id": sessionId, "created-at": now});
+
   let cfg = this.config();
   let defaults = {
     "id": sessionId,
@@ -61,9 +62,46 @@ kaiao.sessionStarted = function(data) {
     "screen-width": window.screen.width,
     "created-at": now
   };
+
   data = this.merge(defaults, data);
-  this.send({metadata: {op: "kaiao.op/session"},
+
+  let metadata = {
+    "op": "kaiao.op/session-started"
+  };
+
+  if (null != user) {
+    metadata.user = user;
+  }
+
+  this.send({"metadata": metadata,
+             "data": data});
+};
+
+
+kaiao.identify = function(user) {
+  user["project-id"] = this.projectId();
+  this.send({metadata: {"op": "kaiao.op/identify"},
+             data: {"session-id": this.sessionId(),
+                    "user": user}});
+};
+
+kaiao.sessionEnded = function() {
+  let id = this.sessionId();
+
+  if(null == id) {
+    console.log("no existing session");
+    return;
+  }
+
+  let data = {
+    "id": id,
+    "ended-at": new Date().getTime()
+  };
+
+  this.send({metadata: {"op": "kaiao.op/session-ended",
+                        "project-id": this.projectId()},
              data: data});
+  localStorage.removeItem("kaiao/session");
 };
 
 
@@ -96,8 +134,8 @@ kaiao.track = function(data) {
   if (null == data["name"]) {
     throw Error("event name is required");
   }
-  this.send({metadata: {op: "kaiao.op/events"},
-             data: [data]});
+  this.send({metadata: {"op": "kaiao.op/events"},
+             data: {events: [data]}});
 };
 
 window.kaiao = kaiao;
