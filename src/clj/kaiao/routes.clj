@@ -174,12 +174,14 @@
     (try
       (handler req)
       (catch Throwable t
-        (println t)
-        (mu/log :kaiao/unhandled-exception :exception t)
-        {:status 500
-         :headers {"content-type" "application/json"}
-         :body {:error "server error"}}))))
-
+        (if (-> t ex-data :ex/tags :ex/validation)
+          {:status 400
+           :body {:error "validation error"}}
+          (do
+            (mu/log :kaiao/unhandled-exception :exception t)
+            {:status 500
+             :headers {"content-type" "application/json"}
+             :body {:error "server error"}}))))))
 
 
 (defn not-found

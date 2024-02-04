@@ -1,21 +1,21 @@
 create table "project" (
    "id" uuid not null
- , "name" varchar(100) not null
- , "domain" varchar(500)
+ , "name" text not null
+ , "domain" text
  , "created_at" timestamptz(6) not null default current_timestamp
  , "updated_at" timestamptz(6) not null default current_timestamp
  , constraint "project_pk" primary key ("id")
 );
 
 create table "user" (
-    "id" varchar(100) not null
+    "id" text not null
   , "project_id" uuid not null
-  , "email" varchar(100)
-  , "first_name" varchar(100)
-  , "last_name" varchar(100)
-  , "name" varchar(200)
-  , "org_id" varchar(100)
-  , "org_name" varchar(100)
+  , "email" text
+  , "first_name" text
+  , "last_name" text
+  , "name" text
+  , "org_id" text
+  , "org_name" text
   , "tags" jsonb
   , "created_at" timestamptz(6) not null default current_timestamp
   , "updated_at" timestamptz(6) not null default current_timestamp
@@ -25,20 +25,26 @@ create table "user" (
 create table "session" (
    "id" uuid not null
  , "project_id" uuid not null
- , "user_id" varchar(100)
- , "project_version_id" varchar(50)
- , "hostname" varchar(100)
- , "browser" varchar(20)
- , "os" varchar(20)
- , "device" varchar(20)
+ , "user_id" text
+ , "project_version_id" text
+ , "hostname" text
+ , "user_agent" text
+ , "user_agent_family" text
+ , "user_agent_major" text
+ , "user_agent_minor" text
+ , "os_family" text
+ , "os_major" text
+ , "os_minor" text
+ , "device_family" text
+ , "device_id" text
  , "screen_width" int
  , "screen_height" int
- , "language" varchar(35)
- , "ip_address" varchar(50)
- , "country" char(2)
- , "city" varchar(50)
- , "subdivision_1" varchar(20)
- , "subdivision_2" varchar(50)
+ , "language" text
+ , "ip_address" text
+ , "country" text
+ , "city" text
+ , "subdivision_1" text
+ , "subdivision_2" text
  , "started_at" timestamptz(6) not null
  , "ended_at" timestamptz(6)
  , "created_at" timestamptz(6) not null default current_timestamp
@@ -51,13 +57,13 @@ create table "event" (
    "id" uuid not null
  , "project_id" uuid not null
  , "session_id" uuid not null
- , "name" varchar(100) not null
- , "url_path" varchar(500) not null
- , "url_query" varchar(500)
- , "referrer_path" varchar(500)
- , "referrer_query" varchar(500)
- , "referrer_host" varchar(500)
- , "page_title" varchar(500)
+ , "name" text not null
+ , "url_path" text not null
+ , "url_query" text
+ , "referrer_path" text
+ , "referrer_query" text
+ , "referrer_host" text
+ , "page_title" text
  , "occurred_at" timestamptz(6) not null default current_timestamp
  , "created_at" timestamptz(6) not null default current_timestamp
  , constraint "event_pk" primary key ("id")
@@ -66,8 +72,8 @@ create table "event" (
 
 create table "event_data" (
    "event_id" uuid not null
- , "key" varchar(500) not null
- , "string_value" varchar(500)
+ , "key" text not null
+ , "string_value" text
  , "int_value" integer
  , "decimal_value" decimal(19,4)
  , "timestamp_value" timestamptz(6)
@@ -79,8 +85,8 @@ create table "event_data" (
 
 create table "session_data" (
    "session_id" uuid not null
- , "key" varchar(500) not null
- , "string_value" varchar(500)
+ , "key" text not null
+ , "string_value" text
  , "int_value" integer
  , "decimal_value" decimal(19,4)
  , "timestamp_value" timestamptz(6)

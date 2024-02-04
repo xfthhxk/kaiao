@@ -9,9 +9,9 @@
 
 (defn start!
   []
-  (main/start-services! {:kaiao/db-url "jdbc:postgresql://localhost:5400/kaiao-db"
-                         :kaiao/db-user "foo"
-                         :kaiao/db-password "bar"
+  (main/start-services! {:kaiao/db-url "jdbc:postgresql://localhost:5400/kaiao-db-dev"
+                         :kaiao/db-user "kaiao-user-dev"
+                         :kaiao/db-password "supersecret"
                          :kaiao/http-port 9000
                          :kaiao/routes-prefix ""})
   (enable-dev-hacks!))

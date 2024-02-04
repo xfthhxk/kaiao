@@ -3,6 +3,7 @@
    [clojure.test :refer [deftest use-fixtures testing]]
    [clojure.set :as set]
    [expectations.clojure.test :refer [expect]]
+   [kaiao.ext :as ext]
    [kaiao.test :as test]
    [kaiao.domain :as domain]
    [kaiao.ingest :as ingest]
@@ -31,8 +32,7 @@
   (let [session-id  #uuid "48ebd7f0-9408-4803-a808-1a1b08e4d9b3"
         m {:id session-id
            :project-id #uuid "1e891261-7208-4aa6-a9aa-76d64b274f05"
-           :os "linux"
-           :browser "firefox"
+           :user-agent "firefox"
            :ip-address "127.0.0.1"
            :data {:baked-good "scone"
                   :quantity 20
@@ -44,8 +44,7 @@
                     (select-keys domain/+allowed-session-keys+))]
       (expect {:id session-id
                :project-id #uuid "1e891261-7208-4aa6-a9aa-76d64b274f05"
-               :os "linux"
-               :browser "firefox"
+               :user-agent "firefox"
                :ip-address "127.0.0.1"}
               (-> found
                   (select-keys domain/+allowed-session-keys+)
@@ -81,7 +80,7 @@
         m {:id session-id
            :project-id project-id
            :os "linux"
-           :browser "firefox"}]
+           :user-agent "firefox"}]
     (ingest/create-session! m {})
     (expect nil (:user-id (db/get-session session-id)))
     (ingest/identify-session! {:session-id session-id
@@ -99,10 +98,10 @@
         m {:id session-id
            :project-id project-id
            :os "linux"
-           :browser "firefox"}]
+           :user-agent "firefox"}]
     (ingest/create-session! m {})
     (expect nil (:user-id (db/get-session session-id)))
-    (ingest/session-ended! {:id session-id :ended-at (ingest/now)} {})
+    (ingest/session-ended! {:id session-id :ended-at (ext/now)} {})
     (expect inst? (:ended-at (db/get-session session-id)))))
 
 

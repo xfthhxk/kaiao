@@ -1,11 +1,14 @@
 (ns kaiao.ingest
   (:require
    [kaiao.db :as db]
+   [kaiao.ext :as ext]
    [clojure.string :as str]
    [next.jdbc :as jdbc]
-   [kaiao.system :refer [*db*]]))
+   [kaiao.system :refer [*db*]])
+  (:import (ua_parser Parser)))
 
-(defn now [] (java.time.Instant/now))
+(set! *warn-on-reflection* true)
+
 
 (defn- ->data-key
   [x]
@@ -55,7 +58,7 @@
 
 (defn session-ended!
   [{:keys [id ended-at]} _metadata]
-  (db/end-session! id (or ended-at (now))))
+  (db/end-session! id (or ended-at (ext/now))))
 
 (defn- events->events-data
   [events]
@@ -67,20 +70,46 @@
              more))))
 
 (defn create-events!
-  [{:keys [events]} _metadata]
+  [{:keys [events] :as _data} _metadata]
   (let [event-data (events->events-data events)]
     (jdbc/with-transaction [txn *db*]
       (db/insert-events! txn events)
       (db/insert-event-data! txn event-data))))
 
+
+
+(defn- ua-info
+  [ua-str]
+  (let [p (Parser.)
+        c (.parse p ua-str)
+        ua (.-userAgent c)
+        os (.-os c)
+        device (.-device c)]
+    (ext/remove-empties
+     {:user-agent ua-str
+      :user-agent-family (.-family ua)
+      :user-agent-major (.-major ua)
+      :user-agent-minor (.-minor ua)
+      :os-family (.-family os)
+      :os-major (.-major os)
+      :os-minor (.-minor os)
+      :device-family (.-family device)})))
+
+
+(defn request-info
+  [req]
+  (let [remote-ip (:kaiao/remote-ip req)
+        ua (get-in req [:headers "user-agent"])]
+    (-> (ua-info ua)
+        (assoc :ip-address remote-ip))))
+
 (defn track!
   [req]
   (let [{:keys [data metadata]} (:body-params req)
-        remote-ip (:kaiao/remote-ip req)
         f (case (-> metadata :op keyword)
             :kaiao.op/session-started (fn [data metadata]
-                                        (-> data
-                                            (assoc :ip-address remote-ip)
+                                        (-> (request-info req)
+                                            (merge data)
                                             (create-session! metadata)))
             :kaiao.op/identify identify-session!
             :kaiao.op/session-ended session-ended!
@@ -91,3 +120,5 @@
       {:status 400
        :headers {}
        :body {:error "invalid request op"}})))
+
+;; pull out os and user agent info

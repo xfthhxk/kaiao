@@ -3,8 +3,8 @@
    [clojure.test :refer [deftest use-fixtures]]
    [expectations.clojure.test :refer [expect]]
    [kaiao.test :as test]
-   [kaiao.db :as db])
-  (:import (java.time Instant)))
+   [kaiao.db :as db]
+   [kaiao.ext :as ext]))
 
 (use-fixtures :each test/with-system)
 
@@ -40,9 +40,9 @@
         s {:id id
            :project-id #uuid "b2c33bd3-32f6-4446-8add-3473192e26d4"
            :hostname "my-host"
-           :browser "chrome"
-           :os "linux"
-           :device "Mac"
+           :user-agent "chrome"
+           :os-family "linux"
+           :device-family "Mac"
            :screen-height 1200
            :screen-width 1800
            :language "en"
@@ -59,9 +59,9 @@
         s {:id id
            :project-id #uuid "b2c33bd3-32f6-4446-8add-3473192e26d4"
            :hostname "my-host"
-           :browser "chrome"
-           :os "linux"
-           :device "Mac"
+           :user-agent "chrome"
+           :os-family "linux"
+           :device-family "Mac"
            :screen-height 1200
            :screen-width 1800
            :language "en"
@@ -80,7 +80,7 @@
         s {:id id
            :project-id #uuid "b2c33bd3-32f6-4446-8add-3473192e26d4"
            :hostname "my-host"
-           :browser "chrome"
+           :user-agent "chrome"
            :os "linux"
            :device "Mac"
            :screen-height 1200
@@ -92,7 +92,7 @@
     (db/insert-sessions! [s])
     (expect some? (db/get-session id))
     (expect nil (:ended-at (db/get-session id)))
-    (db/end-session! id (Instant/now))
+    (db/end-session! id (ext/now))
     (expect inst? (:ended-at (db/get-session id)))))
 
 (deftest insert-events!-test

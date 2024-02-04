@@ -35,9 +35,15 @@
 (s/def :kaiao/tags (s/coll-of string? :distinct true))
 (s/def :kaiao/project-version-id string?)
 (s/def :kaiao/hostname string?)
-(s/def :kaiao/browser string?)
-(s/def :kaiao/os string?)
-(s/def :kaiao/device string?)
+(s/def :kaiao/user-agent string?)
+(s/def :kaiao/user-agent-family string?)
+(s/def :kaiao/user-agent-major string?)
+(s/def :kaiao/user-agent-minor string?)
+(s/def :kaiao/os-family string?)
+(s/def :kaiao/os-major string?)
+(s/def :kaiao/os-minor string?)
+(s/def :kaiao/device-family string?)
+(s/def :kaiao/device-id string?)
 (s/def :kaiao/screen-height pos-int?)
 (s/def :kaiao/screen-width pos-int?)
 (s/def :kaiao/language string?)
@@ -92,9 +98,15 @@
           :opt-un [:kaiao/user-id
                    :kaiao/project-version-id
                    :kaiao/hostname
-                   :kaiao/browser
-                   :kaiao/os
-                   :kaiao/device
+                   :kaiao/user-agent
+                   :kaiao/user-agent-family
+                   :kaiao/user-agent-major
+                   :kaiao/user-agent-minor
+                   :kaiao/os-family
+                   :kaiao/os-major
+                   :kaiao/os-minor
+                   :kaiao/device-family
+                   :kaiao/device-id
                    :kaiao/screen-height
                    :kaiao/screen-width
                    :kaiao/language

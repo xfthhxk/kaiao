@@ -7,12 +7,12 @@
    [next.jdbc.result-set :as rs]
    [next.jdbc.default-options]
    [kaiao.domain :as domain]
+   [kaiao.ext :as ext]
    [kaiao.pg] ; load to register protocol impls
    [kaiao.system :refer [*db*]]
    [clojure.string :as str]
    [camel-snake-kebab.core :as csk])
-  (:import (java.sql ResultSet)
-           (java.time Instant)))
+  (:import (java.sql ResultSet)))
 
 (set! *warn-on-reflection* true)
 
@@ -54,32 +54,18 @@
   {:builder-fn as-maps})
 
 
-(defn coerce-instant
-  [x]
-  (cond
-    (inst? x) x
-    (int? x) (Instant/ofEpochMilli x)
-    (string? x) (Instant/parse x)
-    :else nil))
-
 (defn- as-instant-fn
   [k & {:keys [optional?]}]
   (fn [m]
-    (or (some-> (get m k) coerce-instant)
-        (when-not optional? (Instant/now)))))
-
-(defn- coerce-uuid
-  [x]
-  (cond
-    (uuid? x) x
-    (string? x) (java.util.UUID/fromString x)
-    :else nil))
+    (or (some-> (get m k) ext/coerce-instant)
+        (when-not optional? (ext/now)))))
 
 (defn- ensure-uuid-fn
   [k]
   (fn [m]
-    (or (some-> (get m k) coerce-uuid)
-        (throw (ex-info "Invalid uuid" {:x (get m k)})))))
+    (or (some-> (get m k) ext/coerce-uuid)
+        (throw (ex-info "Invalid uuid" {:ex/tags #{:ex/validation}
+                                        :x (get m k)})))))
 
 (def ^:private key->extractor-fn
   {:started-at (as-instant-fn :started-at)
@@ -121,7 +107,8 @@
   "Creates a project and returns the id"
   [project]
   (when (str/blank? (:name project))
-    (throw (ex-info "project name is required" project)))
+    (throw (ex-info "project name is required" {:ex/tags #{:ex/validation}
+                                                :project project})))
   (let [project (merge {:id (random-uuid)} project)]
     (sql/insert! *db* :project project)
     (:id project)))
@@ -144,7 +131,6 @@
 
 (defn put-users!
   [xs]
-  (let [ks (disj domain/+allowed-user-keys+ )])
   (jdbc/execute-batch!
    *db*
    (str "insert into " (quoted/postgres "user")
@@ -189,12 +175,12 @@
 
 (defn identify-session!
   [session-id user-id]
-  (sql/update! *db* :session {:user_id user-id} [" id = ?" (coerce-uuid session-id)]))
+  (sql/update! *db* :session {:user_id user-id} [" id = ?" (ext/coerce-uuid session-id)]))
 
 
 (defn end-session!
   [session-id ended-at]
-  (sql/update! *db* :session {:ended_at (coerce-instant ended-at)} [" id = ?" (coerce-uuid session-id)]))
+  (sql/update! *db* :session {:ended_at (ext/coerce-instant ended-at)} [" id = ?" (ext/coerce-uuid session-id)]))
 
 
 ;;----------------------------------------------------------------------

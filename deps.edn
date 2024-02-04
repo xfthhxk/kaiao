@@ -11,7 +11,8 @@
         com.s-exp/hirundo {:mvn/version "0.1.30"}
         com.brunobonacci/mulog {:mvn/version "0.9.0"}
         com.cnuernber/charred {:mvn/version "1.033"}
-        com.cognitect/transit-clj {:mvn/version "1.0.333"}}
+        com.cognitect/transit-clj {:mvn/version "1.0.333"}
+        com.github.ua-parser/uap-java {:mvn/version "1.6.1"}}
 
  :paths ["src/clj" "resources" "target/classes"]
 
