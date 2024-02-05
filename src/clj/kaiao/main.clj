@@ -129,6 +129,7 @@
   (if geo-ip-file
     (try
       (geo-ip/init! geo-ip-file)
+      (mu/log :kaiao/geo-ip-setup :status :available)
       (catch Throwable t
         (mu/log :kaiao/geo-ip-setup :status :not-available :file geo-ip-file :ex-message (ex-message t))))
     (mu/log :kaiao/geo-ip-setup :status :no-file-available)))

@@ -1,6 +1,7 @@
 (ns kaiao.geo-ip
   (:require [clojure.java.io :as io])
   (:import (com.maxmind.geoip2 DatabaseReader DatabaseReader$Builder)
+           (com.maxmind.geoip2.exception AddressNotFoundException)
            (com.maxmind.db CHMCache)
            (java.net InetAddress)))
 
@@ -24,13 +25,15 @@
 (defn city
   [ip]
   (when +database-reader+
-    (let [ip-addr (InetAddress/getByName ip)
-          r (.city +database-reader+ ip-addr)
-          l (.getLocation r)]
-      {:iso-country-code (.getIsoCode (.getCountry r))
-       :least-specific-subdivision (.getName (.getLeastSpecificSubdivision r))
-       :most-specific-subdivision (.getName (.getMostSpecificSubdivision r))
-       :city (.getName (.getCity r))
-       :postal-code (.getCode (.getPostal r))
-       :latitude (.getLatitude l)
-       :longitude (.getLongitude l)})))
+    (try
+      (let [ip-addr (InetAddress/getByName ip)
+            r (.city +database-reader+ ip-addr)
+            l (.getLocation r)]
+        {:iso-country-code (.getIsoCode (.getCountry r))
+         :least-specific-subdivision (.getName (.getLeastSpecificSubdivision r))
+         :most-specific-subdivision (.getName (.getMostSpecificSubdivision r))
+         :city (.getName (.getCity r))
+         :postal-code (.getCode (.getPostal r))
+         :latitude (.getLatitude l)
+         :longitude (.getLongitude l)})
+      (catch AddressNotFoundException _))))
