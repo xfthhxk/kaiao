@@ -1,6 +1,7 @@
 (ns kaiao.ingest
   (:require
    [kaiao.db :as db]
+   [kaiao.geo-ip :as geo-ip]
    [kaiao.ext :as ext]
    [clojure.string :as str]
    [next.jdbc :as jdbc]
@@ -101,7 +102,9 @@
   (let [remote-ip (:kaiao/remote-ip req)
         ua (get-in req [:headers "user-agent"])]
     (-> (ua-info ua)
-        (assoc :ip-address remote-ip))))
+        (assoc :ip-address remote-ip)
+        (merge (geo-ip/city remote-ip)))))
+
 
 (defn track!
   [req]

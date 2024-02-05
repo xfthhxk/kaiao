@@ -48,10 +48,13 @@
 (s/def :kaiao/screen-width pos-int?)
 (s/def :kaiao/language string?)
 (s/def :kaiao/ip-address string?)
-(s/def :kaiao/country string?)
+(s/def :kaiao/iso-country-code string?)
 (s/def :kaiao/city string?)
-(s/def :kaiao/subdivision-1 string?)
-(s/def :kaiao/subdivision-2 string?)
+(s/def :kaiao/postal-code string?)
+(s/def :kaiao/latitude double?)
+(s/def :kaiao/longitude double?)
+(s/def :kaiao/most-specific-subdivision string?)
+(s/def :kaiao/least-specific-subdivision string?)
 (s/def :kaiao/session-id uuid?)
 (s/def :kaiao/url-path string?)
 (s/def :kaiao/url-query string?)
@@ -111,10 +114,13 @@
                    :kaiao/screen-width
                    :kaiao/language
                    :kaiao/ip-address
-                   :kaiao/country
+                   :kaiao/iso-country-code
+                   :kaiao/least-specific-subdivision
+                   :kaiao/most-specific-subdivision
                    :kaiao/city
-                   :kaiao/subdivision-1
-                   :kaiao/subdivision-2
+                   :kaiao/postal-code
+                   :kaiao/latitude
+                   :kaiao/longitude
                    :kaiao/started-at
                    :kaiao/ended-at
                    :kaiao/created-at

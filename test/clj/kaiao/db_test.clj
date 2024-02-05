@@ -47,7 +47,7 @@
            :screen-width 1800
            :language "en"
            :ip-address "127.0.0.1"
-           :country "us"
+           :iso-country-code "us"
            :city "santa fe"}]
     (db/insert-sessions! [s])
     (expect s (-> (db/get-session id)
@@ -66,7 +66,7 @@
            :screen-width 1800
            :language "en"
            :ip-address "127.0.0.1"
-           :country "us"
+           :iso-country-code "us"
            :city "santa fe"}]
     (db/insert-sessions! [s])
     (expect some? (db/get-session id))
@@ -87,7 +87,7 @@
            :screen-width 1800
            :language "en"
            :ip-address "127.0.0.1"
-           :country "us"
+           :iso-country-code "us"
            :city "santa fe"}]
     (db/insert-sessions! [s])
     (expect some? (db/get-session id))

@@ -41,10 +41,13 @@ create table "session" (
  , "screen_height" int
  , "language" text
  , "ip_address" text
- , "country" text
+ , "iso_country_code" text
+ , "least_specific_subdivision" text
+ , "most_specific_subdivision" text
  , "city" text
- , "subdivision_1" text
- , "subdivision_2" text
+ , "postal_code" text
+ , "latitude" decimal(7,4)
+ , "longitude" decimal(7,4)
  , "started_at" timestamptz(6) not null
  , "ended_at" timestamptz(6)
  , "created_at" timestamptz(6) not null default current_timestamp

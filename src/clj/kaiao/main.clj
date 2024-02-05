@@ -11,6 +11,7 @@
    [s-exp.hirundo.http.response :as response]
    [next.jdbc.connection :as jdbc.connection]
    [kaiao.system :refer [*server* *db*]]
+   [kaiao.geo-ip :as geo-ip]
    [kaiao.routes :as routes])
   (:import
    (com.zaxxer.hikari HikariDataSource)
@@ -122,12 +123,23 @@
      (mu/log :kaiao/setup-url-rewrite :kaiao/routes-prefix routes-prefix)
      (alter-var-root #'routes/*uri-rewrite-fn* (constantly (url-rewrite-fn routes-prefix))))))
 
+
+(defn setup-geo-ip!
+  [{:keys [kaiao/geo-ip-file]}]
+  (if geo-ip-file
+    (try
+      (geo-ip/init! geo-ip-file)
+      (catch Throwable t
+        (mu/log :kaiao/geo-ip-setup :status :not-available :file geo-ip-file :ex-message (ex-message t))))
+    (mu/log :kaiao/geo-ip-setup :status :no-file-available)))
+
 (defn start-services!
   [& {:as opts}]
   (let [stop-fn (mu/start-publisher! {:type :console})]
     (alter-var-root #'stop-publisher-fn (constantly stop-fn))
     (setup-url-rewrite! opts)
     (create-datasource! opts)
+    (setup-geo-ip! opts)
     (start-server! opts)))
 
 (defn stop-services!
@@ -141,7 +153,8 @@
   []
   {:kaiao/db-url (System/getenv "KAIAO_DB_URL")
    :kaiao/db-user (System/getenv "KAIAO_DB_USER")
-   :kaiao/db-password (System/getenv "KAIAO_DB_PASSWORD")})
+   :kaiao/db-password (System/getenv "KAIAO_DB_PASSWORD")
+   :kaiao/geo-ip-file (System/getenv "KAIAO_GEO_IP_FILE")})
 
 (defn -main
   [& args]
