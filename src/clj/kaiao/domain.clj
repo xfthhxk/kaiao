@@ -36,25 +36,11 @@
 (s/def :kaiao/project-version-id string?)
 (s/def :kaiao/hostname string?)
 (s/def :kaiao/user-agent string?)
-(s/def :kaiao/user-agent-family string?)
-(s/def :kaiao/user-agent-major string?)
-(s/def :kaiao/user-agent-minor string?)
-(s/def :kaiao/os-family string?)
-(s/def :kaiao/os-major string?)
-(s/def :kaiao/os-minor string?)
-(s/def :kaiao/device-family string?)
 (s/def :kaiao/device-id string?)
 (s/def :kaiao/screen-height pos-int?)
 (s/def :kaiao/screen-width pos-int?)
 (s/def :kaiao/language string?)
 (s/def :kaiao/ip-address string?)
-(s/def :kaiao/iso-country-code string?)
-(s/def :kaiao/city string?)
-(s/def :kaiao/postal-code string?)
-(s/def :kaiao/latitude double?)
-(s/def :kaiao/longitude double?)
-(s/def :kaiao/most-specific-subdivision string?)
-(s/def :kaiao/least-specific-subdivision string?)
 (s/def :kaiao/session-id uuid?)
 (s/def :kaiao/url-path string?)
 (s/def :kaiao/url-query string?)
@@ -64,13 +50,7 @@
 (s/def :kaiao/page-title string?)
 (s/def :kaiao/page-title string?)
 (s/def :kaiao/event-id uuid?)
-(s/def :kaiao/key string?)
-(s/def :kaiao/string-value string?)
-(s/def :kaiao/int-value int?)
-(s/def :kaiao/decimal-value double?)
-(s/def :kaiao/timestamp-value instant?)
-(s/def :kaiao/json-value coll?)
-
+(s/def :kaiao/data map?)
 (s/def :external/id string?)
 
 
@@ -78,6 +58,8 @@
   (s/keys :req-un [:kaiao/id
                    :kaiao/name]
           :opt-un [:kaiao/domain
+                   :kaiao/data
+                   :kaiao/tags
                    :kaiao/created-at
                    :kaiao/updated-at]))
 
@@ -91,38 +73,63 @@
                    :kaiao/name
                    :kaiao/org-id
                    :kaiao/org-name
+                   :kaiao/data
                    :kaiao/tags
                    :kaiao/created-at
                    :kaiao/updated-at]))
 
+
+(s/def :user-agent/family string?)
+(s/def :user-agent/major string?)
+(s/def :user-agent/minor string?)
+(s/def :os/family string?)
+(s/def :os/major string?)
+(s/def :os/minor string?)
+(s/def :device/family string?)
+
+(s/def :kaiao/user-agent-data
+  (s/keys :opt [:user-agent/family
+                :user-agent/major
+                :user-agent/minor
+                :os/family
+                :os/major
+                :os/minor
+                :device/family]))
+
+
+(s/def :geo/iso-country-code string?)
+(s/def :geo/subdivision string?)
+(s/def :geo/city string?)
+(s/def :geo/postal-code string?)
+(s/def :geo/longitude double?)
+(s/def :geo/latitude double?)
+
+(s/def :kaiao/geo-data
+  (s/keys :opt [:geo/iso-country-code
+                :geo/subdivision
+                :geo/city
+                :geo/postal-code
+                :geo/longitude
+                :geo/latitude]))
+
 (s/def :kaiao/session
   (s/keys :req-un [:kaiao/id
-                   :kaiao/project-id]
+                   :kaiao/project-id
+                   :kaiao/started-at]
           :opt-un [:kaiao/user-id
                    :kaiao/project-version-id
                    :kaiao/hostname
                    :kaiao/user-agent
-                   :kaiao/user-agent-family
-                   :kaiao/user-agent-major
-                   :kaiao/user-agent-minor
-                   :kaiao/os-family
-                   :kaiao/os-major
-                   :kaiao/os-minor
-                   :kaiao/device-family
+                   :kaiao/user-agent-data
                    :kaiao/device-id
                    :kaiao/screen-height
                    :kaiao/screen-width
                    :kaiao/language
                    :kaiao/ip-address
-                   :kaiao/iso-country-code
-                   :kaiao/least-specific-subdivision
-                   :kaiao/most-specific-subdivision
-                   :kaiao/city
-                   :kaiao/postal-code
-                   :kaiao/latitude
-                   :kaiao/longitude
-                   :kaiao/started-at
+                   :kaiao/geo-data
                    :kaiao/ended-at
+                   :kaiao/data
+                   :kaiao/tags
                    :kaiao/created-at
                    :kaiao/updated-at]))
 
@@ -138,28 +145,10 @@
                    :kaiao/referrer-query
                    :kaiao/referrer-host
                    :kaiao/page-title
+                   :kaiao/data
+                   :kaiao/tags
                    :kaiao/created-at
                    :kaiao/occurred-at]))
-
-(s/def :kaiao/event-data
-  (s/keys :req-un [:kaiao/event-id
-                   :kaiao/key]
-          :opt-un [:kaiao/string-value
-                   :kaiao/int-value
-                   :kaiao/decimal-value
-                   :kaiao/timestamp-value
-                   :kaiao/json-value
-                   :kaiao/created-at]))
-
-(s/def :kaiao/session-data
-  (s/keys :req-un [:kaiao/session-id
-                   :kaiao/key]
-          :opt-un [:kaiao/string-value
-                   :kaiao/int-value
-                   :kaiao/decimal-value
-                   :kaiao/timestamp-value
-                   :kaiao/json-value
-                   :kaiao/created-at]))
 
 (def +allowed-user-keys+
   (allowed-keys :kaiao/user))
@@ -169,9 +158,3 @@
 
 (def +allowed-event-keys+
   (allowed-keys :kaiao/event))
-
-(def +allowed-event-data-keys+
-  (allowed-keys :kaiao/event-data))
-
-(def +allowed-session-data-keys+
-  (allowed-keys :kaiao/session-data))

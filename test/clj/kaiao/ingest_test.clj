@@ -1,96 +1,87 @@
 (ns kaiao.ingest-test
   (:require
-   [clojure.test :refer [deftest use-fixtures testing]]
-   [clojure.set :as set]
+   [clojure.test :refer [deftest use-fixtures]]
    [expectations.clojure.test :refer [expect]]
-   [kaiao.ext :as ext]
    [kaiao.test :as test]
    [kaiao.domain :as domain]
-   [kaiao.ingest :as ingest]
    [kaiao.db :as db]))
 
 (use-fixtures :each test/with-system)
 
-(deftest data-rows-test
-  (expect [{:event-id "23"
-            :key :a
-            :int-value 1}
-           {:event-id "23"
-            :key :b
-            :string-value "string"}
-           {:event-id "23"
-            :key :c
-            :string-value :key}]
-          (#'ingest/data-rows :event-id "23"
-                              {:a 1
-                               :b "string"
-                               :c :key})))
-
-
+(def +user-agent+ "Mozilla/5.0 (X11; Linux i686; rv:122.0) Gecko/20100101 Firefox/122.0")
+(def +ip-address+ "38.15.220.202")
 
 (deftest create-session!-test
   (let [session-id  #uuid "48ebd7f0-9408-4803-a808-1a1b08e4d9b3"
         m {:id session-id
            :project-id #uuid "1e891261-7208-4aa6-a9aa-76d64b274f05"
-           :user-agent "firefox"
-           :ip-address "127.0.0.1"
            :data {:baked-good "scone"
                   :quantity 20
                   :price-each 3.5
-                  :tags ["sweet" "savory" "buttery"]}}]
-    (ingest/create-session! m {})
+                  :tags ["sweet" "savory" "buttery"]}}
+        {:keys [status]} (test/track-request
+                          :headers {"user-agent" +user-agent+
+                                    "x-forwarded-for" +ip-address+}
+                          :body {:metadata {:op :kaiao.op/session-started}
+                                 :data m})]
+    (expect 204 status)
 
     (let [found (-> (db/get-session session-id)
                     (select-keys domain/+allowed-session-keys+))]
+      (expect {:geo/iso-country-code "US"
+               :geo/subdivision "California"
+               :geo/city "Los Angeles"
+               :geo/postal-code "90059"
+               :geo/latitude 33.9322
+               :geo/longitude -118.2488}
+              (:geo-data found))
+
+      (expect {:os/family "Linux",
+               :device/family "Other",
+               :user-agent/major "122",
+               :user-agent/minor "0",
+               :user-agent/family "Firefox"}
+              (:user-agent-data found))
+
       (expect {:id session-id
                :project-id #uuid "1e891261-7208-4aa6-a9aa-76d64b274f05"
-               :user-agent "firefox"
-               :ip-address "127.0.0.1"}
+               :user-agent +user-agent+
+               :ip-address +ip-address+
+               :data {:baked-good "scone"
+                      :quantity 20
+                      :price-each 3.5
+                      :tags ["sweet" "savory" "buttery"]}}
               (-> found
                   (select-keys domain/+allowed-session-keys+)
-                  (dissoc :created-at :started-at)))
-      (expect inst? (:started-at found))
-      (expect nil (:ended-at found))
-      (expect {:session-id session-id
-               :key "baked-good"
-               :string-value "scone"}
-              (-> (db/get-session-data session-id :baked-good)
-                  (select-keys [:session-id :key :string-value]))))
+                  (dissoc :created-at :started-at :geo-data :user-agent-data)))
 
-    (let [found (db/get-session-data session-id)]
-      (expect #{{:session-id session-id
-                 :key "baked-good"
-                 :string-value "scone"}
-                {:session-id session-id
-                 :key "quantity"
-                 :int-value 20}
-                {:session-id session-id
-                 :key "price-each"
-                 :decimal-value 3.5000M}
-                {:session-id session-id
-                 :key "tags"
-                 :json-value ["sweet" "savory" "buttery"]}}
-              (set/project found [:session-id :key :string-value :int-value :decimal-value :json-value]))
-      (expect true (every? inst? (map :created-at found))))))
+      (expect inst? (:started-at found))
+      (expect nil (:ended-at found)))))
 
 
 (deftest identify-sesion!-test
   (let [session-id  #uuid "48ebd7f0-9408-4803-a808-1a1b08e4d9b3"
         project-id #uuid "1e891261-7208-4aa6-a9aa-76d64b274f05"
+        user {:id "LD"
+              :project-id project-id
+              :first-name "larry"
+              :last-name "david"
+              :email "larry.david@example.com"}
         m {:id session-id
            :project-id project-id
            :os "linux"
            :user-agent "firefox"}]
-    (ingest/create-session! m {})
-    (expect nil (:user-id (db/get-session session-id)))
-    (ingest/identify-session! {:session-id session-id
-                               :user {:id "LD"
-                                      :project-id project-id
-                                      :first-name "larry"
-                                      :last-name "david"
-                                      :email "larry.david@example.com"}}
-                              {})
-    (expect "LD" (:user-id (db/get-session session-id)))))
+    (test/track-request :body {:metadata {:op :kaiao.op/session-started}
+                               :data m})
+    (expect {:id session-id} (select-keys (db/get-session session-id)
+                                          [:id :user-id]))
+    (expect nil (db/get-user project-id "LD"))
+    (test/track-request :body {:metadata {:op :kaiao.op/identify}
+                               :data {:session-id session-id
+                                      :user user}})
+    (expect "LD" (:user-id (db/get-session session-id)))
+    (expect user (-> (db/get-user project-id "LD")
+                     (select-keys (keys user))))))
 
 (deftest sesion-ended!-test
   (let [session-id  #uuid "48ebd7f0-9408-4803-a808-1a1b08e4d9b3"
@@ -99,9 +90,14 @@
            :project-id project-id
            :os "linux"
            :user-agent "firefox"}]
-    (ingest/create-session! m {})
-    (expect nil (:user-id (db/get-session session-id)))
-    (ingest/session-ended! {:id session-id :ended-at (ext/now)} {})
+    (test/track-request :body {:metadata {:op :kaiao.op/session-started}
+                               :data m})
+    (expect {:id session-id} (select-keys (db/get-session session-id)
+                                          [:id :user-id]))
+    (test/track-request :body {:metadata {:op :kaiao.op/session-ended
+                                          :project-id project-id}
+                               :data {:id session-id
+                                      :ended-at (System/currentTimeMillis)}})
     (expect inst? (:ended-at (db/get-session session-id)))))
 
 
@@ -117,25 +113,7 @@
                   :quantity 20
                   :price-each 3.5
                   :tags ["sweet" "savory" "buttery"]}}]
-    (ingest/create-events! {:events [m]} {})
-    (expect some? (db/get-event event-id))
-    (expect {:event-id event-id
-             :key "baked-good"
-             :string-value "scone"}
-            (-> (db/get-event-data event-id :baked-good)
-                (select-keys [:event-id :key :string-value])))
-    (let [found (db/get-event-data event-id)]
-      (expect #{{:event-id event-id
-                 :key "baked-good"
-                 :string-value "scone"}
-                {:event-id event-id
-                 :key "quantity"
-                 :int-value 20}
-                {:event-id event-id
-                 :key "price-each"
-                 :decimal-value 3.5000M}
-                {:event-id event-id
-                 :key "tags"
-                 :json-value ["sweet" "savory" "buttery"]}}
-              (set/project found [:event-id :key :string-value :int-value :decimal-value :json-value]))
-      (expect true (every? inst? (map :created-at found))))))
+    (test/track-request :body {:metadata {:op :kaiao.op/events}
+                               :data {:events [m]}})
+    (expect m (-> (db/get-event event-id)
+                  (select-keys (keys m))))))

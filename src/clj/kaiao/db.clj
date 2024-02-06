@@ -101,7 +101,7 @@
 ;;----------------------------------------------------------------------
 (defn get-project
   [id]
-  (sql/get-by-id *db* "project" id :id +rs-opts+))
+  (sql/get-by-id *db* "projects" (ext/coerce-uuid id) :id +rs-opts+))
 
 (defn create-project!
   "Creates a project and returns the id"
@@ -110,7 +110,7 @@
     (throw (ex-info "project name is required" {:ex/tags #{:ex/validation}
                                                 :project project})))
   (let [project (merge {:id (random-uuid)} project)]
-    (sql/insert! *db* :project project)
+    (sql/insert! *db* "projects" project)
     (:id project)))
 
 ;;----------------------------------------------------------------------
@@ -124,8 +124,8 @@
   [project-id user-id]
   (first (sql/find-by-keys
           *db*
-          (quoted/postgres "user")
-          {:project_id project-id
+          "users"
+          {:project_id (ext/coerce-uuid project-id)
            :id user-id}
           +rs-opts+)))
 
@@ -133,7 +133,7 @@
   [xs]
   (jdbc/execute-batch!
    *db*
-   (str "insert into " (quoted/postgres "user")
+   (str "insert into users "
         (columns-list domain/+allowed-user-keys+)
         " values "
         (placeholder-list (count domain/+allowed-user-keys+))
@@ -144,6 +144,7 @@
         " , name = excluded.name "
         " , org_id = excluded.org_id "
         " , org_name = excluded.org_name "
+        " , data = excluded.data "
         " , tags = excluded.tags "
         " , updated_at = current_timestamp")
    (mapv user-values xs)
@@ -157,14 +158,14 @@
 
 (defn get-session
   [id]
-  (sql/get-by-id *db* "session" id :id +rs-opts+))
+  (sql/get-by-id *db* "sessions" (ext/coerce-uuid id) :id +rs-opts+))
 
 (defn insert-sessions!
   ([xs] (insert-sessions! *db* xs))
   ([db xs]
    (jdbc/execute-batch!
     db
-    (str "insert into " (quoted/postgres "session")
+    (str "insert into sessions "
          (columns-list domain/+allowed-session-keys+)
          " values "
          (placeholder-list (count domain/+allowed-session-keys+))
@@ -175,12 +176,12 @@
 
 (defn identify-session!
   [session-id user-id]
-  (sql/update! *db* :session {:user_id user-id} [" id = ?" (ext/coerce-uuid session-id)]))
+  (sql/update! *db* "sessions" {:user_id user-id} [" id = ?" (ext/coerce-uuid session-id)]))
 
 
 (defn end-session!
   [session-id ended-at]
-  (sql/update! *db* :session {:ended_at (ext/coerce-instant ended-at)} [" id = ?" (ext/coerce-uuid session-id)]))
+  (sql/update! *db* "sessions" {:ended_at (ext/coerce-instant ended-at)} [" id = ?" (ext/coerce-uuid session-id)]))
 
 
 ;;----------------------------------------------------------------------
@@ -190,90 +191,17 @@
 
 (defn get-event
   [id]
-  (sql/get-by-id *db* "event" id :id +rs-opts+))
+  (sql/get-by-id *db* "events" (ext/coerce-uuid id) :id +rs-opts+))
 
 (defn insert-events!
   ([xs] (insert-events! *db* xs))
   ([db xs]
    (jdbc/execute-batch!
     db
-    (str "insert into " (quoted/postgres "event")
+    (str "insert into events "
          (columns-list domain/+allowed-event-keys+)
          " values "
          (placeholder-list (count domain/+allowed-event-keys+))
          " on conflict (id) do nothing ")
     (mapv event-values xs)
     {})))
-
-
-;;----------------------------------------------------------------------
-;; Event Data
-;;----------------------------------------------------------------------
-(def ^:private event-data-values (row-extractor-fn domain/+allowed-event-data-keys+))
-
-(defn get-event-data
-  ([event-id]
-   (sql/find-by-keys
-    *db*
-    "event_data"
-    {"event_id" event-id}
-    +rs-opts+))
-  ([event-id key-name]
-   (some-> (sql/find-by-keys
-            *db*
-            "event_data"
-            {"event_id" event-id
-             "key" key-name}
-            +rs-opts+)
-           first)))
-
-
-(defn insert-event-data!
-  ([xs] (insert-event-data! *db* xs))
-  ([db xs]
-   (when (seq xs)
-     (jdbc/execute-batch!
-      db
-      (str "insert into " (quoted/postgres "event_data")
-           (columns-list domain/+allowed-event-data-keys+)
-           " values "
-           (placeholder-list (count domain/+allowed-event-data-keys+))
-           " on conflict (event_id, key) do nothing ")
-      (mapv event-data-values xs)
-      {}))))
-
-
-;;----------------------------------------------------------------------
-;; Session Data
-;;----------------------------------------------------------------------
-(def ^:private session-data-values (row-extractor-fn domain/+allowed-session-data-keys+))
-
-(defn get-session-data
-  ([session-id]
-   (sql/find-by-keys
-    *db*
-    "session_data"
-    {"session_id" session-id}
-    +rs-opts+))
-  ([session-id key-name]
-   (some-> (sql/find-by-keys
-            *db*
-            "session_data"
-            {"session_id" session-id
-             "key" key-name}
-            +rs-opts+)
-           first)))
-
-(defn insert-session-data!
-  ([xs] (insert-session-data! *db* xs))
-  ([db xs]
-   (when (seq xs)
-     (jdbc/execute-batch!
-      db
-      (str "insert into " (quoted/postgres "session_data")
-           (columns-list domain/+allowed-session-data-keys+)
-           " values "
-           (placeholder-list (count domain/+allowed-session-data-keys+))
-           " on conflict (session_id, key) do nothing ")
-      (mapv session-data-values xs)
-      {}))))
