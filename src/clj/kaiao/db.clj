@@ -73,7 +73,6 @@
    :occurred-at (as-instant-fn :occurred-at)
    :project-id (ensure-uuid-fn :project-id)
    :session-id (ensure-uuid-fn :session-id)
-   :event-id (ensure-uuid-fn :event-id)
    :id (ensure-uuid-fn :id)})
 
 (defn- row-extractor-fn
@@ -141,9 +140,6 @@
         " do update set email = excluded.email "
         " , first_name = excluded.first_name "
         " , last_name = excluded.last_name "
-        " , name = excluded.name "
-        " , org_id = excluded.org_id "
-        " , org_name = excluded.org_name "
         " , data = excluded.data "
         " , tags = excluded.tags "
         " , updated_at = current_timestamp")

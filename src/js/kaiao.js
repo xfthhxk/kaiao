@@ -49,21 +49,28 @@ kaiao.sessionStarted = function(data, user = null) {
   let sessionId = window.crypto.randomUUID();
   let now = new Date().getTime();
 
-  this.writeLS("kaiao/session", {"id": sessionId, "created-at": now});
+  this.writeLS("kaiao/session", {"id": sessionId, "started-at": now});
 
   let cfg = this.config();
-  let defaults = {
+
+  let defaultData = {
+    "location/hostname": window.location.hostname,
+    "navigator/language": navigator.language,
+    "screen/height": window.screen.height,
+    "screen/width": window.screen.width
+  };
+
+  data = this.merge(defaultData, data);
+
+  let session = {
     "id": sessionId,
     "project-id": cfg["project-id"],
     "project-version-id": cfg["project-version-id"],
-    "hostname": window.location.hostname,
-    "language": navigator.language,
-    "screen-height": window.screen.height,
-    "screen-width": window.screen.width,
-    "created-at": now
+    "data": data,
+    "started-at": now
   };
 
-  data = this.merge(defaults, data);
+
 
   let metadata = {
     "op": "kaiao.op/session-started"
@@ -71,10 +78,11 @@ kaiao.sessionStarted = function(data, user = null) {
 
   if (null != user) {
     metadata.user = user;
+    session["user-id"] = user.id;
   }
 
   this.send({"metadata": metadata,
-             "data": data});
+             "data": session});
 };
 
 
@@ -105,37 +113,50 @@ kaiao.sessionEnded = function() {
 };
 
 
-kaiao.track = function(data) {
-  if ("string" === typeof data) {
-    data = {"name": data};
+kaiao.track = function(eventName, data, tags) {
+  if (null == eventName) {
+    throw Error("event name is required");
   }
 
-  let referrerInfo = {};
+  let referrerData = {};
   if (null!=document.referrer && document.referrer.length > 0) {
     let url = new URL(document.referrer);
-    referrerInfo = {
-      "referrer-path": url.pathname,
-      "referrer-query": url.search,
-      "referrer-host": url.host
+    referrerData = {
+      "referrer/path": url.pathname,
+      "referrer/hostname": url.hostname
     };
+
+    if ("" != url.search) {
+      referrerData["referrer/query"] = url.search;
+    }
+  }
+
+  let pageData = {
+    "page/title": document.title,
+    "page/path": window.location.pathname
+  };
+
+  if ("" != window.location.search) {
+    pageData["page/query"] = window.location.search;
   }
 
   let cfg = this.config();
-  let defaults = {
+
+  let event = {
     "id": window.crypto.randomUUID(),
     "project-id": cfg["project-id"],
     "session-id": this.sessionId(),
-    "url-path": window.location.pathname,
-    "url-query": window.location.search,
-    "page-title": document.title,
-    "created-at": new Date().getTime()
+    "name": eventName,
+    "occurred-at": new Date().getTime(),
+    "data": this.merge(referrerData, pageData, data),
   };
-  data = this.merge(defaults,referrerInfo, data);
-  if (null == data["name"]) {
-    throw Error("event name is required");
+
+  if (null != tags) {
+    event["tags"] = tags;
   }
+
   this.send({metadata: {"op": "kaiao.op/events"},
-             data: {events: [data]}});
+             data: {events: [event]}});
 };
 
 window.kaiao = kaiao;

@@ -15,9 +15,6 @@ create table "users" (
   , "email" text
   , "first_name" text
   , "last_name" text
-  , "name" text
-  , "org_id" text
-  , "org_name" text
   , "data" jsonb
   , "tags" jsonb
   , "created_at" timestamptz(6) not null default current_timestamp
@@ -30,13 +27,9 @@ create table "sessions" (
  , "project_id" uuid not null
  , "user_id" text
  , "project_version_id" text
- , "hostname" text
  , "user_agent" text
  , "user_agent_data" jsonb
  , "device_id" text
- , "screen_width" int
- , "screen_height" int
- , "language" text
  , "ip_address" text
  , "geo_data" jsonb
  , "started_at" timestamptz(6) not null
@@ -54,12 +47,6 @@ create table "events" (
  , "project_id" uuid not null
  , "session_id" uuid not null
  , "name" text not null
- , "url_path" text not null
- , "url_query" text
- , "referrer_path" text
- , "referrer_query" text
- , "referrer_host" text
- , "page_title" text
  , "occurred_at" timestamptz(6) not null default current_timestamp
  , "data" jsonb
  , "tags" jsonb

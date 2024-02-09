@@ -21,35 +21,23 @@
 (s/def :kaiao/project-id uuid?)
 (s/def :kaiao/name string?)
 (s/def :kaiao/domain string?)
+
 (s/def :kaiao/created-at instant?) ;; when recorded in system
 (s/def :kaiao/updated-at instant?) ;; when updated in system
 (s/def :kaiao/started-at instant?) ;; actual event time
 (s/def :kaiao/ended-at instant?) ;; actual event time
 (s/def :kaiao/occurred-at instant?) ;; actual event time
+
 (s/def :kaiao/user-id string?)
 (s/def :kaiao/email string?)
 (s/def :kaiao/first-name string?)
 (s/def :kaiao/last-name string?)
-(s/def :kaiao/org-id string?)
-(s/def :kaiao/org-name string?)
 (s/def :kaiao/tags (s/coll-of string? :distinct true))
 (s/def :kaiao/project-version-id string?)
-(s/def :kaiao/hostname string?)
 (s/def :kaiao/user-agent string?)
 (s/def :kaiao/device-id string?)
-(s/def :kaiao/screen-height pos-int?)
-(s/def :kaiao/screen-width pos-int?)
-(s/def :kaiao/language string?)
 (s/def :kaiao/ip-address string?)
 (s/def :kaiao/session-id uuid?)
-(s/def :kaiao/url-path string?)
-(s/def :kaiao/url-query string?)
-(s/def :kaiao/referrer-path string?)
-(s/def :kaiao/referrer-query string?)
-(s/def :kaiao/referrer-host string?)
-(s/def :kaiao/page-title string?)
-(s/def :kaiao/page-title string?)
-(s/def :kaiao/event-id uuid?)
 (s/def :kaiao/data map?)
 (s/def :external/id string?)
 
@@ -70,9 +58,6 @@
           :opt-un [:kaiao/email
                    :kaiao/first-name
                    :kaiao/last-name
-                   :kaiao/name
-                   :kaiao/org-id
-                   :kaiao/org-name
                    :kaiao/data
                    :kaiao/tags
                    :kaiao/created-at
@@ -116,22 +101,38 @@
   (s/keys :req-un [:kaiao/id
                    :kaiao/project-id
                    :kaiao/started-at]
-          :opt-un [:kaiao/user-id
+          :opt-un [:kaiao/ended-at
+                   :kaiao/user-id
                    :kaiao/project-version-id
-                   :kaiao/hostname
                    :kaiao/user-agent
                    :kaiao/user-agent-data
                    :kaiao/device-id
-                   :kaiao/screen-height
-                   :kaiao/screen-width
-                   :kaiao/language
                    :kaiao/ip-address
                    :kaiao/geo-data
-                   :kaiao/ended-at
                    :kaiao/data
                    :kaiao/tags
                    :kaiao/created-at
                    :kaiao/updated-at]))
+
+
+(s/def :page/title string?)
+(s/def :page/url string?)
+(s/def :page/hostname string?)
+(s/def :page/path string?)
+(s/def :page/query string?)
+(s/def :page/referrer-url string?)
+(s/def :referrer/hostname string?)
+(s/def :referrer/path string?)
+(s/def :referrer/query string?)
+
+(s/def :kaiao/page-data
+  (s/keys :opt [:page/title
+                :page/pathname
+                :page/search
+                :page/referrer
+                :referrer/hostname
+                :referrer/pathname
+                :referrer/search]))
 
 
 (s/def :kaiao/event
@@ -139,12 +140,6 @@
                    :kaiao/project-id
                    :kaiao/session-id]
           :opt-un [:kaiao/name
-                   :kaiao/url-path
-                   :kaiao/url-query
-                   :kaiao/referrer-path
-                   :kaiao/referrer-query
-                   :kaiao/referrer-host
-                   :kaiao/page-title
                    :kaiao/data
                    :kaiao/tags
                    :kaiao/created-at

@@ -107,9 +107,9 @@
            :project-id #uuid "1e891261-7208-4aa6-a9aa-76d64b274f05"
            :session-id #uuid "3293bd86-b6af-454f-a3fb-f00926fe133b"
            :name "add-to-cart"
-           :url-path "/ginger-pear-scone"
-           :page-title "Ginger Pear Scone"
-           :data {:baked-good "scone"
+           :data {:page/title "Ginger Pear Scone"
+                  :page/url "/ginger-pear-scone"
+                  :baked-good "scone"
                   :quantity 20
                   :price-each 3.5
                   :tags ["sweet" "savory" "buttery"]}}]
