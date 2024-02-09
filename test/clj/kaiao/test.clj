@@ -20,7 +20,7 @@
   (println "Setting up test system")
   (let [stop-fn (mu/start-publisher! {:type :console})]
     (alter-var-root #'stop-publisher-fn (constantly stop-fn))
-    (geo-ip/init! "./data/GeoLite2-City.mmdb")
+    (geo-ip/init! "./data/geo-lite2-city.mmdb")
     (test-db/init!)))
 
 

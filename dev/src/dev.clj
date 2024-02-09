@@ -12,7 +12,7 @@
   (main/start-services! {:kaiao/db-url "jdbc:postgresql://localhost:5400/kaiao-db-dev"
                          :kaiao/db-user "kaiao-user-dev"
                          :kaiao/db-password "supersecret"
-                         :kaiao/geo-ip-file "./data/GeoLite2-City.mmdb"
+                         :kaiao/geo-ip-file "./data/geo-lite2-city.mmdb"
                          :kaiao/http-port 9000
                          :kaiao/routes-prefix ""})
   (enable-dev-hacks!))
