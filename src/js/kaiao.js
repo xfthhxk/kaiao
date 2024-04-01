@@ -1,5 +1,14 @@
 this.kaiao = {};
 
+kaiao.genUUID = function() {
+  if ("crypto" in window) {
+    return window.crypto.randomUUID();
+  } else {
+    console.error("crypto module is not available.");
+    throw new Error("crypto module is not available.");
+  }
+};
+
 kaiao.merge = function(a,b,c) {
   return {...a, ...b, ...c};
 };
@@ -46,7 +55,19 @@ kaiao.send = function(data) {
 };
 
 kaiao.sessionStarted = function(data, user = null) {
-  let sessionId = window.crypto.randomUUID();
+  if (null == data) {
+    data = {};
+  }
+
+  var sessionId = null;
+
+  if ("kaiao/session-id" in data) {
+    sessionId = data["kaiao/session-id"];
+    delete data["kaiao/session-id"];
+  } else {
+    sessionId = this.genUUID();
+  }
+
   let now = new Date().getTime();
 
   this.writeLS("kaiao/session", {"id": sessionId, "started-at": now});
@@ -116,6 +137,19 @@ kaiao.sessionEnded = function() {
 kaiao.track = function(eventName, data, tags) {
   if (null == eventName) {
     throw Error("event name is required");
+  }
+
+  if (null == data) {
+    data = {};
+  }
+
+  var eventId = null;
+
+  if ("kaiao/event-id" in data) {
+    eventId = data["kaiao/event-id"];
+    delete data["kaiao/event-id"];
+  } else {
+    eventId = this.genUUID();
   }
 
   let referrerData = {};

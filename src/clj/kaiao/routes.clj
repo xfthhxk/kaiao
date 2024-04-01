@@ -175,8 +175,13 @@
       (handler req)
       (catch Throwable t
         (if (-> t ex-data :ex/tags :ex/validation)
-          {:status 400
-           :body {:error "validation error"}}
+          (do
+            (mu/log :kaiao/validation-error
+                    :exception t
+                    :ex/message (ex-message t)
+                    :ex/data (ex-data t))
+            {:status 400
+             :body {:error "validation error"}})
           (do
             (mu/log :kaiao/unhandled-exception :exception t)
             {:status 500
