@@ -15,10 +15,10 @@
   (let [session-id  #uuid "48ebd7f0-9408-4803-a808-1a1b08e4d9b3"
         m {:id session-id
            :project-id #uuid "1e891261-7208-4aa6-a9aa-76d64b274f05"
+           :tags ["sweet" "savory" "buttery"]
            :data {:baked-good "scone"
                   :quantity 20
-                  :price-each 3.5
-                  :tags ["sweet" "savory" "buttery"]}}
+                  :price-each 3.5}}
         {:keys [status]} (test/track-request
                           :headers {"user-agent" +user-agent+
                                     "x-forwarded-for" +ip-address+}
@@ -47,10 +47,10 @@
                :project-id #uuid "1e891261-7208-4aa6-a9aa-76d64b274f05"
                :user-agent +user-agent+
                :ip-address +ip-address+
+               :tags ["sweet" "savory" "buttery"]
                :data {:baked-good "scone"
                       :quantity 20
-                      :price-each 3.5
-                      :tags ["sweet" "savory" "buttery"]}}
+                      :price-each 3.5}}
               (-> found
                   (select-keys domain/+allowed-session-keys+)
                   (dissoc :created-at :started-at :geo-data :user-agent-data)))
@@ -107,12 +107,12 @@
            :project-id #uuid "1e891261-7208-4aa6-a9aa-76d64b274f05"
            :session-id #uuid "3293bd86-b6af-454f-a3fb-f00926fe133b"
            :name "add-to-cart"
+           :tags ["sweet" "savory" "buttery"]
            :data {:page/title "Ginger Pear Scone"
                   :page/url "/ginger-pear-scone"
                   :baked-good "scone"
                   :quantity 20
-                  :price-each 3.5
-                  :tags ["sweet" "savory" "buttery"]}}]
+                  :price-each 3.5}}]
     (test/track-request :body {:metadata {:op :kaiao.op/events}
                                :data {:events [m]}})
     (expect m (-> (db/get-event event-id)
