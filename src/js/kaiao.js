@@ -92,6 +92,9 @@ kaiao.sessionStarted = function(data, user = null) {
   };
 
 
+  if ("tags" in data) {
+    session["tags"] = data.tags;
+  }
 
   let metadata = {
     "op": "kaiao.op/session-started"
