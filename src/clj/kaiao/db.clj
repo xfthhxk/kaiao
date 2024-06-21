@@ -108,7 +108,9 @@
   (when (str/blank? (:name project))
     (throw (ex-info "project name is required" {:ex/tags #{:ex/validation}
                                                 :project project})))
-  (let [project (merge {:id (random-uuid)} project)]
+  (let [project (-> {:id (random-uuid)}
+                    (merge project)
+                    (update :id ext/coerce-uuid))]
     (sql/insert! *db* "projects" project)
     (:id project)))
 

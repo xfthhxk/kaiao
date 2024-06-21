@@ -11,6 +11,7 @@
    [s-exp.hirundo.http.response :as response]
    [next.jdbc.connection :as jdbc.connection]
    [kaiao.system :refer [*server* *db*]]
+   [kaiao.db :as db]
    [kaiao.geo-ip :as geo-ip]
    [kaiao.routes :as routes])
   (:import
@@ -170,6 +171,17 @@
     (mu/log :kaiao/main :git/sha (git-sha))
     (start-services! (merge (env-opts) cli-opts))))
 
+
+
+
+(defn create-project!
+  [project]
+  (-> (Runtime/getRuntime)
+      (.addShutdownHook (Thread. ^Runnable stop-services!)))
+  (create-datasource! (env-opts))
+  (let [project-id (db/create-project! project)]
+    (println "Project created." (db/get-project project-id)))
+  (System/exit 0))
 
 (comment
   (start-services!)

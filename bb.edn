@@ -117,6 +117,16 @@
   {:doc "Migrates the database using the KAIAO_DB_URL, KAIAO_DB_USER and KAIAO_DB_PASSWORD env params"
    :task (shell "clojure -X:flyway flyway/migrate!")}
 
+
   db:clean!
   {:doc "Migrates the database using the KAIAO_DB_URL, KAIAO_DB_USER and KAIAO_DB_PASSWORD env params"
-   :task (shell "clojure -X:flyway flyway/clean!")}}}
+   :task (shell "clojure -X:flyway flyway/clean!")}
+
+  kaiao:create-project!
+  {:doc "Add an entry to the projects table. Required keys :id, :name and :domain. Required ENV vars KAIAO_DB_URL, KAIAO_DB_USER and KAIAO_DB_PASSWORD."
+   :task (let [cmd (str "clojure -X kaiao.main/create-project! "
+                        (->> *command-line-args*
+                             (map (fn [s] (str \' s \')))
+                             (str/join " ")))]
+           (prn cmd)
+           (shell cmd))}}}
